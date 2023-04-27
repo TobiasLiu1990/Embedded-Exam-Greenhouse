@@ -2,8 +2,6 @@
   Uses Openweathermap.org for weather information. Updates every 1h (free version).
   https://stackoverflow.com/questions/46111834/format-curly-braces-on-same-line-in-c-vscode - For changing auto format behaviour
 
-    Information about greenhouse.
-
     Other components:
     Fan (act as vent) - ventilation on/off depending on temp
 
@@ -15,21 +13,13 @@
     Other info i want to show from OpenWeathermap.org
       Current weather
       curent temp
-      min temp
-      max temp
-      humidity %
-      Sunrise
-      Sunset
 
     Maybe also use Air Pollution API
-    Maybe use TFT screen (not likely as i want the info to be posted somewhere that can be accessed on ex. phone)
-
-
-    POST greenhouse info to somewhere.
 
 
     Ref:
     https://learn.adafruit.com/adafruit-sht31-d-temperature-and-humidity-sensor-breakout/wiring-and-test
+    https://adafruit.github.io/Adafruit_LTR329_LTR303/html/class_adafruit___l_t_r329.html
 
 */
 
@@ -75,6 +65,8 @@
     Pineapples and bananas has different ideal conditions. Se info above.
 */
 
+
+
 #include <Adafruit_DotStar.h>
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -83,7 +75,7 @@
 #include <i2cdetect.h>
 
 // Sensors
-#include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux
+#include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux. 
 #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
 // Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
@@ -123,6 +115,14 @@ bool isConnected = false;
 unsigned long previousMillis = 0;
 const long waitInterval = 1500;
 
+ltr329_gain_t pineappleGain = LTR3XX_GAIN_1;        //GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
+ltr329_integrationtime_t pineappleIntegTime = LTR3XX_INTEGTIME_100;
+ltr329_measurerate_t pineappleMeasurementRate = LTR3XX_MEASRATE_100;
+
+ltr329_gain_t bananaGain = LTR3XX_GAIN_4;           //GAIN_4 = 0.25 lux - 16k lux
+ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
+ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
+
 // Forward declarations
 //
 String ErrorCheckingSensors();
@@ -130,6 +130,8 @@ void GetWeatherInfo();
 void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo);
 void ReadTemperature();
 void ReadHumidity();
+void SetLightSensor();
+void GetLightSensorInfo();
 //
 // Forward declarations
 
@@ -150,7 +152,7 @@ BLYNK_CONNECTED() {
 }
 
 // This function sends Arduino's uptime every second to Virtual Pin 2.
-void myTimerEvent() {
+void UptimeCounter() {
     // You can send any value at any time.
     // Please don't send more that 10 values per second.
     Blynk.virtualWrite(V1, millis() / 1000);
@@ -186,10 +188,12 @@ void setup() {
         Serial.println("Now connected to Blynk Greenhouse!!!");
     }
 
-    timer.setInterval(1000L, myTimerEvent);
+    //Blynk .setInterval can not take a function with arguments
     timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
+    timer.setInterval(1000L, UptimeCounter);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
+    timer.setInterval(5000L, SetLightSensor);
 }
 
 void loop() {
@@ -294,9 +298,30 @@ void ReadHumidity() {
     }
 }
 
-void GetLightSensorInfo() {
+void SetLightSensor() {
+    ltr329.setGain(LTR3XX_GAIN_4);
+    ltr329.setIntegrationTime(LTR3XX_INTEGTIME_200);        //Amount of time available to obtain a measurement during which there is essentially no change in the level of the signal
+    ltr329.setMeasurementRate(LTR3XX_MEASRATE_200);         //Number of measurement values generated per second
 
+    GetLightSensorInfo();
 }
+
+
+uint16_t visibleAndIr, infrared;
+void GetLightSensorInfo() {
+    if (ltr329.newDataAvailable()) {
+        bool data = ltr329.readBothChannels(visibleAndIr, infrared);    //1st param = ch0, 2nd param = ch1. Reads both 16-bit channels at once. Put data in argument pointers.
+        if (data) {
+            String ch0 = String(visibleAndIr);
+            String ch1 = String(infrared);
+            String lightInformation = ch0 + "nm - " + ch1 + "nm";
+
+            Blynk.virtualWrite(V7, lightInformation);
+        }
+    }
+}
+
+
 
 void GetTime() {
     // currentDate = new Date();
