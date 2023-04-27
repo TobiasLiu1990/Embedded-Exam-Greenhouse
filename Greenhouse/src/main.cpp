@@ -38,42 +38,47 @@
 #include "Arduino.h"
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
-
-#include "Adafruit_LTR329_LTR303.h"
-#include "Adafruit_SHT31.h"
 #include <Adafruit_DotStar.h>
 #include <Wire.h>
 #include <i2cdetect.h>
+
+//Sensors
+#include "Adafruit_SHT31.h"             //Temperature and humidity sensor
+#include "Adafruit_LTR329_LTR303.h"     //Light sensor
+//Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 //Blynk
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
-//Blynk
 
+//Openweathermap
 const char *ssid = "Venti_2.4G";
 const char *password = "NikitaBoy";
 const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,no&APPID=";
 const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
 
+//Json
 StaticJsonDocument<1024> doc;
-bool isConnected = false;
 
 //Blynk info
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
 #define BLYNK_TEMPLATE_NAME "Greenhouse"
 #define BLYNK_AUTH_TOKEN "90qZjiZBUZwmDULPB9tlfsDqq3fXuoZf"
-
 #define BLYNK_PRINT Serial
 
 char auth[] = BLYNK_AUTH_TOKEN;     //Blynk token
 char ssidBlynk[] = "Venti_2.4G";         //wifi
 char pass[] = "NikitaBoy";          //wifi pw
 
-//Each Blynk timer can run up to 16 instances.
-BlynkTimer timer;
 
+BlynkTimer timer;       //Each Blynk timer can run up to 16 instances.
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
+Adafruit_LTR329 ltr329 = Adafruit_LTR329();
+
+
+bool isConnected = false;
 unsigned long previousMillis = 0;
 const long waitInterval = 1500;
 
@@ -151,9 +156,6 @@ void Countdown() {
 void loop() {
     Blynk.run();
     timer.run();
-
-    // Openweathermap.org API for weather info
-    //GetWeatherInfo();
 }
 
 void GetWeatherInfo() {
@@ -210,8 +212,62 @@ void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo) {
     Serial.println(mainInfo_humidity);
 }
 
+String ErrorCheckingSensors() {
+    String checkSensors = "";
+
+    if (!sht31.begin(0x44)) {
+        checkSensors = "SHT31 - Cannot find sensor";
+        //Send some error to Blynk
+        while (1) delay(1);
+    }
+    if (!ltr329.begin()) {
+        checkSensors += "LTR329 - Cannot find sensor";
+        //Send some error to Blynk
+        while (1) delay(10);
+    }
+
+    if (checkSensors == "") {
+        checkSensors = "Sensors found";
+    }
+
+    return checkSensors;
+}
+
+
+void GetLightSensorInfo() {
+
+}
 
 
 void GetTime() {
     // currentDate = new Date();
 }
+
+
+
+//----------QUESTIONS---------------
+//Check if ok to borrow error code jenschr:
+
+//Why have to use yield()?
+//Why is it delay after?
+//How to know sh31.begin is at addr 0x44 on ESP32?
+
+
+/*
+  if (! lis.begin(0x18)) {
+    Serial.println("Couldn't find LIS3DH sensor!");
+    while (1) yield();
+  }
+  Serial.println("Found LIS3DH sensor!");
+
+  if (! sht31.begin(0x44)) {
+    Serial.println("Couldn't find SHT31 sensor!");
+    while (1) delay(1);
+  }
+  Serial.println("Found SHT31 sensor!");
+
+  if ( ! ltr.begin() ) {
+    Serial.println("Couldn't find LTR sensor!");
+    while (1) delay(10);
+  }
+*/
