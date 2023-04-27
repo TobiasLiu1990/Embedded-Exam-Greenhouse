@@ -4,15 +4,8 @@
 
     Information about greenhouse.
 
-    I want:
-
-    Condition info inside green house:
-      Temp + Humidity (SHT-31)        (Important to control temp/humidity)
-      Lux (LTR329ALS)
-
     Other components:
     Fan (act as vent) - ventilation on/off depending on temp
-    Warning light (DotStar?) - if something goes wrong
 
     Date/time with RTC when:
       Update greenhouse information every 10mins.
@@ -40,45 +33,86 @@
 
 */
 
-#include "Arduino.h"
+/** Placeholder - information on greenhouse
+ *      * https://www.growspan.com/news/understanding-greenhouse-lighting/#:~:text=Greenhouses%20generally%20require%20six%20hours,promote%20crop%20growth%20and%20yield
+ *          - 6h of direkt or full spectrum light each day in a greenhouse is good.
+ * 
+ * 
+ *      * https://www.mrhouseplant.com/blog/what-is-bright-indirect-light-for-plants/#:~:text=Most%20house%20plants%20need%20bright,will%20be%20happier%20and%20healthier
+ *          - Bright indirect light or indirect light is > 3000 lux
+ *          - Good for indoor plants.
+ *          - Stronger indirect light over 10000 lux - 15000 lux will increase photosynthesis, speed up growth. Better.
+ *
+ * 
+ *      * https://www.mrhouseplant.com/blog/caring-for-a-pineapple-plant-101-ananas-comosus-tips-tricks/
+ *          - Pineapple  min 10000 lux - max 40000 lux
+ *          - Temp between 18 - 24
+ *          - Humidity 25% - 50%
+ *          - Direct sun tolerance: 8h
+ * 
+ *          - in bright indirect light (3000 lux), they can grow but very slow. High chance to not produce fruit.
+ *
+ * 
+ * 
+ *      * https://solarinnovations.com/news/blog/banana-tree-growing-tips/#:~:text=Banana%20trees%20are%20a%20must,they%20take%20up%20less%20space
+ *          - 12h sun per day 
+ *          - 19.4 C at night
+ *          - 29.4 C during day
+ *          - humidity 50%
+ * 
+ *      * https://www.rhs.org.uk/plants/banana/growing-guide
+ *          - min 15C
+ *          - ideal 27C
+ * 
+ *      * https://www.gardenguides.com/75976-grow-bananas-greenhouse.html
+ *          - ideal: 21.1 - 26.6
+*/
+
+/*
+    General role for a greenhouse seems to be that 6h of direkt light per day is good.
+    Bright indirect aka. indirect light is over 3000lux.
+
+    Pineapples and bananas has different ideal conditions. Se info above.
+*/
+
+#include <Adafruit_DotStar.h>
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
-#include <Adafruit_DotStar.h>
 #include <Wire.h>
 #include <i2cdetect.h>
 
-//Sensors
-#include "Adafruit_SHT31.h"             //Temperature and humidity sensor
-#include "Adafruit_LTR329_LTR303.h"     //Light sensor
-//Later maybe add accelerometer to check if it has been flipped (for light sensor)
+// Sensors
+#include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux
+#include "Adafruit_SHT31.h"         //Temperature and humidity sensor
+// Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
-//Blynk
+// Blynk
+#include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
-#include <BlynkSimpleEsp32.h>
 
-//Openweathermap
+// Openweathermap
 const char *ssid = "Venti_2.4G";
 const char *password = "NikitaBoy";
 const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,no&APPID=";
 const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
 
-//Json
+// Json
 StaticJsonDocument<1024> doc;
 
-//Blynk info
+// Blynk info
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
 #define BLYNK_TEMPLATE_NAME "Greenhouse"
 #define BLYNK_AUTH_TOKEN "90qZjiZBUZwmDULPB9tlfsDqq3fXuoZf"
 #define BLYNK_PRINT Serial
 
-char auth[] = BLYNK_AUTH_TOKEN;     //Blynk token
-char ssidBlynk[] = "Venti_2.4G";         //wifi
-char pass[] = "NikitaBoy";          //wifi pw
+char auth[] = BLYNK_AUTH_TOKEN;  // Blynk token
+char ssidBlynk[] = "Venti_2.4G"; // wifi
+char pass[] = "NikitaBoy";       // wifi pw
 
-
-BlynkTimer timer;       //Each Blynk timer can run up to 16 instances.
+BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
 
@@ -89,13 +123,13 @@ bool isConnected = false;
 unsigned long previousMillis = 0;
 const long waitInterval = 1500;
 
-
 // Forward declarations
 //
 String ErrorCheckingSensors();
 void GetWeatherInfo();
 void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo);
 void ReadTemperature();
+void ReadHumidity();
 //
 // Forward declarations
 
@@ -104,32 +138,29 @@ void ReadTemperature();
 //
 // This function is called every time the Virtual Pin 0 state changes
 BLYNK_WRITE(V0) {
-    int value = param.asInt();  //Save incoming value from virtual pin V0
+    int value = param.asInt(); // Save incoming value from virtual pin V0
     digitalWrite(LED_BUILTIN, value);
 }
 
-BLYNK_CONNECTED()
-{
-  // Change Web Link Button message to "Congratulations!"
-  Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
-  Blynk.setProperty(V3, "onImageUrl",  "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
-  Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
+BLYNK_CONNECTED() {
+    // Change Web Link Button message to "Congratulations!"
+    Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
+    Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
+    Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
 }
 
 // This function sends Arduino's uptime every second to Virtual Pin 2.
-void myTimerEvent()
-{
-  // You can send any value at any time.
-  // Please don't send more that 10 values per second.
-  Blynk.virtualWrite(V1, millis() / 1000);
+void myTimerEvent() {
+    // You can send any value at any time.
+    // Please don't send more that 10 values per second.
+    Blynk.virtualWrite(V1, millis() / 1000);
 }
 //
 // Blynk
 
-
 void setup() {
     Serial.begin(115200);
-    Wire.begin(3,4);                    //i2c SDC, SCL
+    Wire.begin(3, 4); // i2c SDC, SCL
     pinMode(LED_BUILTIN, OUTPUT);
     delay(1000);
 
@@ -156,8 +187,9 @@ void setup() {
     }
 
     timer.setInterval(1000L, myTimerEvent);
-    timer.setInterval(5000L, GetWeatherInfo);       // Openweathermap.org API for weather info
+    timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
     timer.setInterval(5000L, ReadTemperature);
+    timer.setInterval(5000L, ReadHumidity);
 }
 
 void loop() {
@@ -222,33 +254,33 @@ void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo) {
 String ErrorCheckingSensors() {
     String checkSensors = "";
 
-    if (!sht31.begin(0x44)) {                           //default i2c address
+    if (!sht31.begin(0x44)) { // default i2c address
         checkSensors = "SHT31 - Cannot find sensor";
-        //Send some error to Blynk
-        while (1) delay(1);
+        // Send some error to Blynk
+        while (1)
+            delay(1);
     }
     if (!ltr329.begin()) {
         checkSensors += "LTR329 - Cannot find sensor";
-        //Send some error to Blynk
-        while (1) delay(10);
+        // Send some error to Blynk
+        while (1)
+            delay(10);
     }
 
     if (checkSensors == "") {
         checkSensors = "Sensors found";
     }
-
     return checkSensors;
 }
 
-//Should write to Virtual Pin, V2 on Blynk
+// Should write to Virtual Pin, V2 on Blynk
 void ReadTemperature() {
     temperature = sht31.readTemperature();
 
     if (!isnan(temperature)) {
         Blynk.virtualWrite(V2, temperature);
-        //send temp to Blynk
     } else {
-        //error! send error message to blynk
+        // error! send error message to blynk
     }
 }
 
@@ -256,9 +288,9 @@ void ReadHumidity() {
     humidity = sht31.readTemperature();
 
     if (!isnan(humidity)) {
-        //send humidity to Blynk
+        Blynk.virtualWrite(V3, humidity);
     } else {
-        //error! send error message to blynk
+        // error! send error message to blynk
     }
 }
 
@@ -266,30 +298,27 @@ void GetLightSensorInfo() {
 
 }
 
-
 void GetTime() {
     // currentDate = new Date();
 }
 
-//Delay timer but with millis. Runs every 1500ms.
+// Delay timer but with millis. Runs every 1500ms.
 void Countdown() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
-        //When 1500ms pass, do something in here
+        // When 1500ms pass, do something in here
 
         //
         previousMillis = currentMillis;
     }
 }
 
-
 //----------QUESTIONS---------------
-//Check if ok to borrow error code jenschr:
+// Check if ok to borrow error code jenschr:
 
-//Why have to use yield()?
-//Why is it delay after?
-//How to know sh31.begin is at addr 0x44 on ESP32?
-
+// Why have to use yield()?
+// Why is it delay after?
+// How to know sh31.begin is at addr 0x44 on ESP32?
 
 /*
   if (! lis.begin(0x18)) {
@@ -308,4 +337,12 @@ void Countdown() {
     Serial.println("Couldn't find LTR sensor!");
     while (1) delay(10);
   }
+
+
+
+
+
+what is setgain?`!
+
+
 */
