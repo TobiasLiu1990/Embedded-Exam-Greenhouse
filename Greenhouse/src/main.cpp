@@ -65,8 +65,6 @@
     Pineapples and bananas has different ideal conditions. Se info above.
 */
 
-
-
 #include <Adafruit_DotStar.h>
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -75,8 +73,8 @@
 #include <i2cdetect.h>
 
 // Sensors
-#include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux. 
-#include "Adafruit_SHT31.h"         //Temperature and humidity sensor
+#include "Adafruit_LTR329_LTR303.h"     //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux. 
+#include "Adafruit_SHT31.h"             //Temperature and humidity sensor
 // Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Blynk
@@ -103,6 +101,7 @@ StaticJsonDocument<1024> doc;
 char auth[] = BLYNK_AUTH_TOKEN;  // Blynk token
 char ssidBlynk[] = "Venti_2.4G"; // wifi
 char pass[] = "NikitaBoy";       // wifi pw
+
 
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
@@ -140,15 +139,15 @@ void GetLightSensorInfo();
 //
 // This function is called every time the Virtual Pin 0 state changes
 BLYNK_WRITE(V0) {
-    int value = param.asInt(); // Save incoming value from virtual pin V0
-    digitalWrite(LED_BUILTIN, value);
+    //int value = param.asInt(); // Save incoming value from virtual pin V0
+    //digitalWrite(LED_BUILTIN, value);
 }
 
 BLYNK_CONNECTED() {
     // Change Web Link Button message to "Congratulations!"
-    Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
-    Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
-    Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
+    //Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
+    //Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
+    //Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
 }
 
 // This function sends Arduino's uptime every second to Virtual Pin 2.
@@ -159,6 +158,7 @@ void UptimeCounter() {
 }
 //
 // Blynk
+
 
 void setup() {
     Serial.begin(115200);
@@ -189,7 +189,7 @@ void setup() {
     }
 
     //Blynk .setInterval can not take a function with arguments
-    timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
+    //timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
     timer.setInterval(1000L, UptimeCounter);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
@@ -288,8 +288,9 @@ void ReadTemperature() {
     }
 }
 
+// Should write to Virtual Pin, V3 on Blynk
 void ReadHumidity() {
-    humidity = sht31.readTemperature();
+    humidity = sht31.readHumidity();
 
     if (!isnan(humidity)) {
         Blynk.virtualWrite(V3, humidity);
@@ -306,21 +307,20 @@ void SetLightSensor() {
     GetLightSensorInfo();
 }
 
-
-uint16_t visibleAndIr, infrared;
+uint16_t visibleAndIr;      //Should maybe only measure visible for plants? 
+uint16_t infrared;          //IR produces heat but does not help photosynthesis...
 void GetLightSensorInfo() {
     if (ltr329.newDataAvailable()) {
         bool data = ltr329.readBothChannels(visibleAndIr, infrared);    //1st param = ch0, 2nd param = ch1. Reads both 16-bit channels at once. Put data in argument pointers.
         if (data) {
             String ch0 = String(visibleAndIr);
             String ch1 = String(infrared);
-            String lightInformation = ch0 + "nm - " + ch1 + "nm";
+            String lightInformation = "Visible and IR: " + ch0 + ". IR: " + ch1;
 
             Blynk.virtualWrite(V7, lightInformation);
         }
     }
 }
-
 
 
 void GetTime() {
@@ -341,9 +341,14 @@ void Countdown() {
 //----------QUESTIONS---------------
 // Check if ok to borrow error code jenschr:
 
-// Why have to use yield()?
-// Why is it delay after?
-// How to know sh31.begin is at addr 0x44 on ESP32?
+/*
+ * varför yield()?
+ * och varför delay efter?
+ * 
+ * ltr readbothchannels. Vad är det man får? Lux eller nm för våglängd av ljus?
+ * 
+*/
+
 
 /*
   if (! lis.begin(0x18)) {
@@ -362,12 +367,5 @@ void Countdown() {
     Serial.println("Couldn't find LTR sensor!");
     while (1) delay(10);
   }
-
-
-
-
-
-what is setgain?`!
-
 
 */
