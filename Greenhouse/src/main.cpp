@@ -33,6 +33,11 @@
 
 
     POST greenhouse info to somewhere.
+
+
+    Ref:
+    https://learn.adafruit.com/adafruit-sht31-d-temperature-and-humidity-sensor-breakout/wiring-and-test
+
 */
 
 #include "Arduino.h"
@@ -77,6 +82,8 @@ BlynkTimer timer;       //Each Blynk timer can run up to 16 instances.
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
 
+float temperature;
+float humidity;
 
 bool isConnected = false;
 unsigned long previousMillis = 0;
@@ -85,10 +92,16 @@ const long waitInterval = 1500;
 
 // Forward declarations
 //
+String ErrorCheckingSensors();
 void GetWeatherInfo();
 void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo);
+void ReadTemperature();
+//
+// Forward declarations
 
 
+// Blynk
+//
 // This function is called every time the Virtual Pin 0 state changes
 BLYNK_WRITE(V0) {
     int value = param.asInt();  //Save incoming value from virtual pin V0
@@ -111,15 +124,20 @@ void myTimerEvent()
   Blynk.virtualWrite(V1, millis() / 1000);
 }
 //
-//Forward declarations
+// Blynk
 
 
 void setup() {
     Serial.begin(115200);
+    Wire.begin(3,4);                    //i2c SDC, SCL
     pinMode(LED_BUILTIN, OUTPUT);
+    delay(1000);
+
+    ErrorCheckingSensors();
     delay(2000);
 
     WiFi.begin(ssid, password);
+    delay(1000);
 
     while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
@@ -137,21 +155,10 @@ void setup() {
         Serial.println("Now connected to Blynk Greenhouse!!!");
     }
 
-    timer.setInterval(5000L, GetWeatherInfo);       // Openweathermap.org API for weather info
     timer.setInterval(1000L, myTimerEvent);
+    timer.setInterval(5000L, GetWeatherInfo);       // Openweathermap.org API for weather info
+    timer.setInterval(5000L, ReadTemperature);
 }
-
-//Delay timer but with millis. Runs every 1500ms.
-void Countdown() {
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= waitInterval) {
-        //When 1500ms pass, do something in here
-
-        //
-        previousMillis = currentMillis;
-    }
-}
-
 
 void loop() {
     Blynk.run();
@@ -215,7 +222,7 @@ void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo) {
 String ErrorCheckingSensors() {
     String checkSensors = "";
 
-    if (!sht31.begin(0x44)) {
+    if (!sht31.begin(0x44)) {                           //default i2c address
         checkSensors = "SHT31 - Cannot find sensor";
         //Send some error to Blynk
         while (1) delay(1);
@@ -233,6 +240,27 @@ String ErrorCheckingSensors() {
     return checkSensors;
 }
 
+//Should write to Virtual Pin, V2 on Blynk
+void ReadTemperature() {
+    temperature = sht31.readTemperature();
+
+    if (!isnan(temperature)) {
+        Blynk.virtualWrite(V2, temperature);
+        //send temp to Blynk
+    } else {
+        //error! send error message to blynk
+    }
+}
+
+void ReadHumidity() {
+    humidity = sht31.readTemperature();
+
+    if (!isnan(humidity)) {
+        //send humidity to Blynk
+    } else {
+        //error! send error message to blynk
+    }
+}
 
 void GetLightSensorInfo() {
 
@@ -243,6 +271,16 @@ void GetTime() {
     // currentDate = new Date();
 }
 
+//Delay timer but with millis. Runs every 1500ms.
+void Countdown() {
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= waitInterval) {
+        //When 1500ms pass, do something in here
+
+        //
+        previousMillis = currentMillis;
+    }
+}
 
 
 //----------QUESTIONS---------------
