@@ -144,6 +144,15 @@ Fruits currentState; // Will be set to Bananas by default in Setup()
 int stateNumber = 0; // 0 will default to Bananas
 bool isStateChanged = false;
 
+float minTemp;
+float maxTemp;
+float idealLowTemp;
+float idealHighTemp;
+float idealLowHumidity;
+float idealHighHumidity;
+String BlynkGreenhouseLabel = "";
+String blynkGreenhouseString = "";
+
 // Forward declarations
 //
 String ErrorCheckingSensors();
@@ -155,15 +164,14 @@ void SetLightSensor();
 void GetLightSensorInfo();
 void FruitStateTransition();
 void UpdateFruitStateConditions();
-void UpdateFruitSettings(float minTemp, float maxTemp, float idealLowTemp, float idealHighTemp);
-void UpdateFruitHumiditySettings(float idealLowHumidity, float idealHighHumidity);
+void CheckSensorData();
 //
 // Forward declarations
 
 // Blynk
 //
 // This function is called every time the Virtual Pin 0 state changes
-BLYNK_WRITE(V6) {
+BLYNK_WRITE(V0) {
     stateNumber = param.asInt();
     isStateChanged = true;
 }
@@ -219,7 +227,7 @@ void setup() {
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
-    // timer.setInterval for automatic fan settings
+    timer.setInterval(2000L, CheckSensorData);
 }
 
 void loop() {
@@ -244,15 +252,8 @@ void loop() {
 }
 
 void UpdateFruitStateConditions() {
-    float minTemp;
-    float maxTemp;
-    float idealLowTemp;
-    float idealHighTemp;
-    float idealLowHumidity;
-    float idealHighHumidity;
-
     if (currentState == Banana) {
-        Blynk.setProperty(V6, "label", "Current target: Bananas");
+        Blynk.setProperty(V0, "label", "Current target: Bananas");
         // Ideal range 18.5 - 27.7 is the average from 3 refs
         minTemp = 15;
         maxTemp = 30;
@@ -261,7 +262,7 @@ void UpdateFruitStateConditions() {
         idealLowHumidity = 50;
         idealHighHumidity = 100;
     } else if (currentState == Pineapple) {
-        Blynk.setProperty(V6, "label", "Current target: Pineapples");
+        Blynk.setProperty(V0, "label", "Current target: Pineapples");
         // Ideal range 21.5 - 31 is the average from 2 refs
         minTemp = 10;
         maxTemp = 35;
@@ -270,9 +271,6 @@ void UpdateFruitStateConditions() {
         idealLowHumidity = 40;
         idealHighHumidity = 60;
     }
-
-    UpdateFruitSettings(minTemp, maxTemp, idealLowTemp, idealHighTemp);
-    UpdateFruitHumiditySettings(idealLowHumidity, idealHighHumidity);
 }
 
 void FruitStateTransition() {
@@ -286,37 +284,32 @@ void FruitStateTransition() {
     }
 }
 
-String greenHouseStatus = "";
-void UpdateFruitSettings(float minTemp, float maxTemp, float idealLowTemp, float idealHighTemp) {
-    /*
-        These values should be used to update status/error checking for a fruit based on its ideal environment.
-    */
+
+void CheckSensorData() {
     if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
-        greenHouseStatus = "Temperatures are within ideal range of" + String(idealLowTemp) + " - " + String(idealHighTemp) + "\n";
+        BlynkGreenhouseLabel = "Temperature is within ideal range of: ";
+        blynkGreenhouseString = String(idealLowTemp) + " - " + String(idealHighTemp);
     } else {
-        greenHouseStatus = "Temperature is at a dangerous level of: " + String(temperature) + "\n";
+        BlynkGreenhouseLabel = "Temperature is at a dangerous level of: " + String(temperature) + "\n";
     }
-    Blynk.setProperty(V8, "label", greenHouseStatus);
+
+    if (humidity >= idealLowHumidity && humidity <= idealHighHumidity) {
+        BlynkGreenhouseLabel += "Humidity is within ideal range of" + String(idealLowHumidity) + " - " + String(idealHighHumidity);
+    } else {
+        BlynkGreenhouseLabel += "Humidity is at a dangerous level of: " + String(humidity) + "\n";
+    }
+
+    Blynk.setProperty(V8, "label", BlynkGreenhouseLabel);
     Blynk.virtualWrite(V8, "noooo");
 }
 
-void UpdateFruitHumiditySettings(float idealLowHumidity, float idealHighHumidity) {
-    /*
-        These values should be used to update status/error checking for a fruit based on its ideal environment.
-    */
-    if (humidity >= idealLowHumidity && humidity <= idealHighHumidity) {
-        greenHouseStatus += "Humidity is within ideal range of" + String(idealLowHumidity) + " - " + String(idealHighHumidity);
-    } else {
-        greenHouseStatus = "Humidity is at a dangerous level of: " + String(humidity) + "\n";
-    }
-    Blynk.setProperty(V8, "label", greenHouseStatus);
-}
-
-void CheckSensorData() {
-
-}
 
 void UpdateFanSettings() {
+    //Show fan rpm in Blynk.
+    //Try to get fan to run automatically depending on temperatures
+    //Greenhouse - important with ventilation so cold/hot air does not get trapped
+
+    //Also an override in Blynk to manually change temperature. Maybe need a bool for true/false for auto/manual.
 }
 
 void GetWeatherInfo() {
