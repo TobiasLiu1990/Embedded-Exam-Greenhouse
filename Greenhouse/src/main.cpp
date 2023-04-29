@@ -89,7 +89,7 @@
         * 0 - 100% humidity (2-5% accuracy)
 
 
-    Comparing to ESP32 integrated. Sfter running for around 5min:
+    Comparing to ESP32 integrated. After running for around 5min:
         - Temp: 33.4C
         - Humidity: 15.89%
 
@@ -111,10 +111,7 @@
 
 // Sensors
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
-// #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
+#include "Adafruit_SHT31.h" //Temperature and humidity sensor
 //  Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Blynk
@@ -143,10 +140,8 @@ StaticJsonDocument<1024> doc;
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 #define DHTPIN A1
 #define DHTTYPE DHT11
-DHT_Unified dht(DHTPIN, DHTTYPE);
-sensors_event_t sensorEvent;
 
-// Adafruit_SHT31 sht31 = Adafruit_SHT31();
+Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
 
 ltr329_gain_t pineappleGain = LTR3XX_GAIN_1; // GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
@@ -261,7 +256,6 @@ void setup() {
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(2000L, CheckSensorData);
-    
 }
 
 void loop() {
@@ -368,8 +362,9 @@ void UpdateFanSettings() {
 }
 
 void ReadTemperature() {
-    dht.temperature().getEvent(&sensorEvent);
-    temperature = sensorEvent.temperature;
+    // dht.temperature().getEvent(&sensorEvent);
+    // temperature = sensorEvent.temperature;
+    temperature = sht31.readTemperature();
 
     if (!isnan(temperature)) {
         Blynk.virtualWrite(V1, temperature);
@@ -381,8 +376,9 @@ void ReadTemperature() {
 }
 
 void ReadHumidity() {
-    dht.humidity().getEvent(&sensorEvent);
-    humidity = sensorEvent.relative_humidity;
+    // dht.humidity().getEvent(&sensorEvent);
+    // humidity = sensorEvent.relative_humidity;
+    humidity = sht31.readHumidity();
 
     if (!isnan(humidity)) {
         Blynk.virtualWrite(V2, humidity);
@@ -489,16 +485,12 @@ void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo) {
 
 String ErrorCheckingSensors() {
     String checkSensors = "";
-    sensor_t sensor;
 
-    dht.temperature().getSensor(&sensor);
-    if (sensor.name == "") {
-        checkSensors = "Cannot find temperature sensor on DHT11";
-    }
-
-    dht.humidity().getSensor(&sensor);
-    if (sensor.name == "") {
-        checkSensors = "Cannot find humidity sensor on DHT11";
+    if (!sht31.begin(0x44)) { // default i2c address
+        checkSensors = "SHT31 - Cannot find sensor";
+        // Send some error to Blynk
+        while (1)
+            yield();
     }
 
     if (!ltr329.begin()) {
@@ -508,12 +500,8 @@ String ErrorCheckingSensors() {
             yield();
     }
 
-    if (checkSensors == "") {
-        checkSensors = "Sensors found";
-    }
     return checkSensors;
 }
-
 
 void GetTime() {
     // currentDate = new Date();
