@@ -27,20 +27,33 @@
  *      * https://www.growspan.com/news/understanding-greenhouse-lighting/#:~:text=Greenhouses%20generally%20require%20six%20hours,promote%20crop%20growth%20and%20yield
  *          - 6h of direkt or full spectrum light each day in a greenhouse is good.
  *
- *
  *      * https://www.mrhouseplant.com/blog/what-is-bright-indirect-light-for-plants/#:~:text=Most%20house%20plants%20need%20bright,will%20be%20happier%20and%20healthier
  *          - Bright indirect light or indirect light is > 3000 lux
  *          - Good for indoor plants.
  *          - Stronger indirect light over 10000 lux - 15000 lux will increase photosynthesis, speed up growth. Better.
  *
  *
- *      * https://www.mrhouseplant.com/blog/caring-for-a-pineapple-plant-101-ananas-comosus-tips-tricks/
- *          - Pineapple  min 10000 lux - max 40000 lux
- *          - Temp between 18 - 24
- *          - Humidity 25% - 50%
- *          - Direct sun tolerance: 8h
  *
+ *
+ *      * https://www.mrhouseplant.com/blog/caring-for-a-pineapple-plant-101-ananas-comosus-tips-tricks/    (NOT GREENHOUSE)
+ *          - Pineapple  min 10000 lux - max 40000 lux *
  *          - in bright indirect light (3000 lux), they can grow but very slow. High chance to not produce fruit.
+ *
+ *      * https://www.thespruce.com/how-to-grow-a-pineapple-7091045
+ *          - Humidity 40% - 60%
+ *
+ *      * https://wintergardenz.co.nz/growing-advice-and-tips/growing-pineapples-in-a-greenhouse/
+ *          - Sensitive to temp, for every 1C above or below ideal can damage growth by 6%.
+ *          - optimal temp 20 - 32 (night to day)
+ *          - Max = 35C and above can lead to sunburn damage
+ *
+ *      * https://www.plantlexicon.com/pineapple/#Temperature   (optimal growth seems to require a lot of different temps in each phase of the growth...)
+ *          - min temp 10C
+ *          - ideal from 23C - 30C
+ *
+ *
+ *
+ *
  *
  *
  *
@@ -48,7 +61,7 @@
  *          - 12h sun per day
  *          - 19.4 C at night
  *          - 29.4 C during day
- *          - humidity 50%
+ *          - >= humidity 50%      http://www.agritech.tnau.ac.in/expert_system/banana/cli.html#:~:text=A%20humidity%20of%20at%20least,will%20damage%20the%20banana%20leaves.
  *
  *      * https://www.rhs.org.uk/plants/banana/growing-guide
  *          - min 15C
@@ -142,6 +155,8 @@ void SetLightSensor();
 void GetLightSensorInfo();
 void FruitStateTransition();
 void UpdateFruitStateConditions();
+void UpdateFruitSettings(float minTemp, float maxTemp, float idealLowTemp, float idealHighTemp);
+void UpdateFruitHumiditySettings(float idealLowHumidity, float idealHighHumidity);
 //
 // Forward declarations
 
@@ -204,17 +219,19 @@ void setup() {
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
+    // timer.setInterval for automatic fan settings
 }
 
 void loop() {
     Blynk.run();
     timer.run();
 
-
     if (isStateChanged) {
         FruitStateTransition();
         UpdateFruitStateConditions();
         isStateChanged = false;
+    } else {
+        CheckSensorData();
     }
 
     /*
@@ -227,24 +244,38 @@ void loop() {
 }
 
 void UpdateFruitStateConditions() {
+    float minTemp;
+    float maxTemp;
+    float idealLowTemp;
+    float idealHighTemp;
+    float idealLowHumidity;
+    float idealHighHumidity;
+
     if (currentState == Banana) {
         Blynk.setProperty(V6, "label", "Current target: Bananas");
-        /*
-            Change error checking for ideal banana environment
-        */
-    }
-    else if (currentState == Pineapple) {
+        // Ideal range 18.5 - 27.7 is the average from 3 refs
+        minTemp = 15;
+        maxTemp = 30;
+        idealLowTemp = 18.5;
+        idealHighTemp = 27.7;
+        idealLowHumidity = 50;
+        idealHighHumidity = 100;
+    } else if (currentState == Pineapple) {
         Blynk.setProperty(V6, "label", "Current target: Pineapples");
-        /*
-            Change error checking for ideal banana environment
-        */
+        // Ideal range 21.5 - 31 is the average from 2 refs
+        minTemp = 10;
+        maxTemp = 35;
+        idealLowTemp = 21.5;
+        idealHighTemp = 31;
+        idealLowHumidity = 40;
+        idealHighHumidity = 60;
     }
+
+    UpdateFruitSettings(minTemp, maxTemp, idealLowTemp, idealHighTemp);
+    UpdateFruitHumiditySettings(idealLowHumidity, idealHighHumidity);
 }
 
-
 void FruitStateTransition() {
-    enum Fruits lastState = currentState;
-
     switch (stateNumber) {
     case 0:
         currentState = Banana;
@@ -253,6 +284,39 @@ void FruitStateTransition() {
         currentState = Pineapple;
         break;
     }
+}
+
+String greenHouseStatus = "";
+void UpdateFruitSettings(float minTemp, float maxTemp, float idealLowTemp, float idealHighTemp) {
+    /*
+        These values should be used to update status/error checking for a fruit based on its ideal environment.
+    */
+    if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
+        greenHouseStatus = "Temperatures are within ideal range of" + String(idealLowTemp) + " - " + String(idealHighTemp) + "\n";
+    } else {
+        greenHouseStatus = "Temperature is at a dangerous level of: " + String(temperature) + "\n";
+    }
+    Blynk.setProperty(V8, "label", greenHouseStatus);
+    Blynk.virtualWrite(V8, "noooo");
+}
+
+void UpdateFruitHumiditySettings(float idealLowHumidity, float idealHighHumidity) {
+    /*
+        These values should be used to update status/error checking for a fruit based on its ideal environment.
+    */
+    if (humidity >= idealLowHumidity && humidity <= idealHighHumidity) {
+        greenHouseStatus += "Humidity is within ideal range of" + String(idealLowHumidity) + " - " + String(idealHighHumidity);
+    } else {
+        greenHouseStatus = "Humidity is at a dangerous level of: " + String(humidity) + "\n";
+    }
+    Blynk.setProperty(V8, "label", greenHouseStatus);
+}
+
+void CheckSensorData() {
+
+}
+
+void UpdateFanSettings() {
 }
 
 void GetWeatherInfo() {
