@@ -191,6 +191,7 @@ void ResetBlynkWidget();
 void ResetBlynkWidget();
 void ResetBlynkWidgetColor(char vp, String color);
 void initBlynk();
+void ResetBlynkWidgetMessage(char vp, String message);
 //
 // Forward declarations
 
@@ -249,6 +250,7 @@ void setup() {
         Serial.println("Now connected to Blynk Greenhouse!!!");
         delay(1000);
         initBlynk();    // Init Blynk with Banana as default
+        delay(1000);
     }
 
     // Blynk .setInterval can not take a function with arguments
