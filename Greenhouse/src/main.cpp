@@ -102,16 +102,26 @@
     This wont be 100% accurate as the chip gets hotter, more compensation might be needed though.
 */
 
+/*
+    Components and stuff used:
+        Blynk
+
+        ESP32-S3
+        DHT11 (Only used to compensate for ESP32 integrated sensors)
+        RTC ZS-042 (DS3231)
+
+*/
 #include <Adafruit_DotStar.h>
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <RtcDS3231.h>
 #include <Wire.h>
 #include <i2cdetect.h>
 
 // Sensors
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
-#include "Adafruit_SHT31.h" //Temperature and humidity sensor
+#include "Adafruit_SHT31.h"         //Temperature and humidity sensor
 //  Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Blynk
@@ -143,6 +153,7 @@ BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
+RtcDS3231<TwoWire> Rtc(Wire);
 
 ltr329_gain_t pineappleGain = LTR3XX_GAIN_1; // GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
 ltr329_integrationtime_t pineappleIntegTime = LTR3XX_INTEGTIME_100;
@@ -165,6 +176,7 @@ enum Fruits {
 Fruits currentState; // Will be set to Bananas by default in Setup()
 int stateNumber;     // 0 will default to Bananas
 bool isStateChanged = false;
+bool runErrorHandlingOnce = true;
 
 const float temperatureDifference = 33.88 - 24.40;
 const float humidityDifference = 15.89 - 11;
@@ -223,31 +235,52 @@ BLYNK_CONNECTED() {
 void setup() {
     Serial.begin(115200);
     Wire.begin(3, 4); // i2c SDC, SCL
+    Rtc.Begin();
     pinMode(LED_BUILTIN, OUTPUT);
     currentState = Banana;
-    delay(1000);
+
+    // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
+    RtcDateTime compiled = checkDateTimeErrors();
+    CheckRtcIsRunning();
+    RtcDateTime now = Rtc.GetDateTime();
+    CheckIfRtcDateNeedsUpdate(now, compiled);
+
+    if (!wasError("setup GetDateTime")) {
+        if (now < compiled) {
+            Serial.println("RTC is older than compile time, updating DateTime");
+            Rtc.SetDateTime(compiled);
+        } else if (now > compiled) {
+            Serial.println("RTC is newer than compile time, this is expected");
+        } else if (now == compiled) {
+            Serial.println("RTC is the same as compile time, while not expected all is still fine");
+        }
+    }
+
+    // never assume the Rtc was last configured by you, so
+    // just clear them to your needed state
+    Rtc.Enable32kHzPin(false);
+    wasError("setup Enable32kHzPin");
+    Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
+    wasError("setup SetSquareWavePin");
 
     ErrorCheckingSensors();
-    delay(2000);
+    delay(1000);
 
     WiFi.begin(ssid, password);
     delay(1000);
 
     while (WiFi.status() != WL_CONNECTED) {
-        delay(1000);
+        delay(1500);
         Serial.println("Connecting to Wifi...");
         isConnected = false;
     }
     Serial.println("Connected to the Wifi network");
     isConnected = true;
-    Serial.println(WiFi.localIP());
-
-    Serial.println("Now connected to WiFi");
 
     if (isConnected) {
         Blynk.begin(BLYNK_AUTH_TOKEN, ssidBlynk, pass);
         Serial.println("Now connected to Blynk Greenhouse!");
-        delay(1000);
+        delay(100);
         initBlynk(); // Init Blynk with Banana as default
         delay(1000);
     }
@@ -435,7 +468,6 @@ void UpdateBlynkWidgetColor(char vp, String color) {
     Blynk.setProperty(vp, "color", color);
 }
 
-
 void GetWeatherInfo() {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
@@ -508,6 +540,91 @@ String ErrorCheckingSensors() {
     }
 
     return checkSensors;
+}
+
+RtcDateTime checkDateTimeErrors() {
+    // Error checking code taken from DS3231_Simple (Rtc by Hakuna)
+    RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+
+    if (!Rtc.IsDateTimeValid()) {
+        if (!wasError("setup IsDateTimeValid")) {
+            // Common Causes:
+            //    1) first time you ran and the device wasn't running yet
+            //    2) the battery on the device is low or even missing
+
+            Serial.println("RTC lost confidence in the DateTime!");
+
+            // following line sets the RTC to the date & time this sketch was compiled
+            // it will also reset the valid flag internally unless the Rtc device is
+            // having an issue
+
+            if (runErrorHandlingOnce) {
+                Rtc.SetDateTime(compiled);
+                runErrorHandlingOnce = false;
+                return;
+            }
+        }
+    }
+    return compiled;
+}
+
+void CheckRtcIsRunning() {
+    if (!Rtc.GetIsRunning()) {
+        if (!wasError("setup GetIsRunning")) {
+            Serial.println("RTC was not actively running, starting now");
+            Rtc.SetIsRunning(true);
+        }
+    }
+}
+
+void CheckIfRtcDateNeedsUpdate(RtcDateTime now, RtcDateTime compiled) {
+    if (!wasError("setup GetDateTime")) {
+        if (now < compiled) {
+            Serial.println("RTC is older than compile time, updating DateTime");
+            Rtc.SetDateTime(compiled);
+        } else if (now > compiled) {
+            Serial.println("RTC is newer than compile time, this is expected");
+        } else if (now == compiled) {
+            Serial.println("RTC is the same as compile time, while not expected all is still fine");
+        }
+    }
+}
+
+bool wasError(const char *errorTopic = "") {
+    uint8_t error = Rtc.LastError();
+    if (error != 0) {
+        // we have a communications error
+        // see https://www.arduino.cc/reference/en/language/functions/communication/wire/endtransmission/
+        // for what the number means
+        Serial.print("[");
+        Serial.print(errorTopic);
+        Serial.print("] WIRE communications error (");
+        Serial.print(error);
+        Serial.print(") : ");
+
+        switch (error) {
+        case Rtc_Wire_Error_None:
+            Serial.println("(none?!)");
+            break;
+        case Rtc_Wire_Error_TxBufferOverflow:
+            Serial.println("transmit buffer overflow");
+            break;
+        case Rtc_Wire_Error_NoAddressableDevice:
+            Serial.println("no device responded");
+            break;
+        case Rtc_Wire_Error_UnsupportedRequest:
+            Serial.println("device doesn't support request");
+            break;
+        case Rtc_Wire_Error_Unspecific:
+            Serial.println("unspecified error");
+            break;
+        case Rtc_Wire_Error_CommunicationTimeout:
+            Serial.println("communications timed out");
+            break;
+        }
+        return true;
+    }
+    return false;
 }
 
 void GetTime() {
