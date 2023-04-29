@@ -388,23 +388,21 @@ String ErrorCheckingSensors() {
     return checkSensors;
 }
 
-// Should write to Virtual Pin, V2 on Blynk
 void ReadTemperature() {
     temperature = sht31.readTemperature();
 
     if (!isnan(temperature)) {
-        Blynk.virtualWrite(V2, temperature);
+        Blynk.virtualWrite(V1, temperature);
     } else {
         // error! send error message to blynk
     }
 }
 
-// Should write to Virtual Pin, V3 on Blynk
 void ReadHumidity() {
     humidity = sht31.readHumidity();
 
     if (!isnan(humidity)) {
-        Blynk.virtualWrite(V3, humidity);
+        Blynk.virtualWrite(V2, humidity);
     } else {
         // error! send error message to blynk
     }
@@ -428,7 +426,7 @@ void GetLightSensorInfo() {
             String ch1 = String(infrared);
             String lightInformation = "Visible and IR: " + ch0 + ". IR: " + ch1;
 
-            Blynk.virtualWrite(V7, lightInformation);
+            Blynk.virtualWrite(V3, lightInformation);
         }
     }
 }
