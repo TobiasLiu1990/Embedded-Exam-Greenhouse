@@ -195,29 +195,32 @@ String BlynkStatusWidgetColor = ""; // https://htmlcolorcodes.com/colors/shades-
 
 // Forward declarations
 //
-String ErrorCheckingSensors();
+void TimerMillis();
+
+void ConnectToOpenWeatherMap();
 void ShowTodaysDateAndWeather();
 void GetWeatherInfo();
-void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo);
+
+String ErrorCheckingSensors();
 void ReadTemperature();
 void ReadHumidity();
 void SetLightSensor();
 void GetLightSensorInfo();
-void FruitStateTransition();
-void UpdateFruitStateConditions();
 void CheckSensorData();
 void CheckTemperatureData();
 void CheckHumidityData();
-void UpdateWeatherInfoTimer();
-void ResetBlynkWidget();
-void ResetBlynkWidget();
+
+void FruitStateTransition();
+void UpdateFruitStateConditions();
+
 void initBlynk();
+void ResetBlynkWidget();
+void ResetBlynkWidget();
 void UpdateBlynkWidgetColor(char vp, String color);
 void UpdateBlynkWidgetContent(char vp, String message);
 void UpdateBlynkWidgetLabel(char vp, String message);
 
-void printDateTime(const RtcDateTime &date);
-void GetDateAndTime();
+String printDateTime(const RtcDateTime &date);
 void RtcErrorCheckingAndUpdatingDate(); // Might need to fix a bit later. Currently copied from Rtc by Makuna example.
 //
 // Forward declarations
@@ -310,7 +313,7 @@ void setup() {
     }
 
     // Blynk .setInterval can not take a function with arguments
-    // timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
+    // timer.setInterval(5000L, M); // Openweathermap.org API for weather info
     timer.setInterval(1000L, ShowTodaysDateAndWeather);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
@@ -492,26 +495,25 @@ void UpdateBlynkWidgetContent(char vp, String message) {
 void UpdateBlynkWidgetColor(char vp, String color) {
     Blynk.setProperty(vp, "color", color);
 }
+/*
 
+
+*/
+String weather = "";
 void ShowTodaysDateAndWeather() {
-    GetDateAndTime();
+    String now = printDateTime(Rtc.GetDateTime());
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
-        GetWeatherInfo();
+        ConnectToOpenWeatherMap();
         previousMillis = currentMillis;
     }
-    
-}
 
-void GetDateAndTime() {
-    RtcDateTime now = Rtc.GetDateTime();
-    printDateTime(now);
+    Blynk.virtualWrite(V7, now + ". " + weather);
 }
 
 #define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
-
-void printDateTime(const RtcDateTime &date) { // Example code from DS3231_Simple (Rtc by Makuna)
+String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_Simple (Rtc by Makuna)
     char dateString[20];
 
     snprintf_P(dateString,                            // buffer
@@ -524,11 +526,13 @@ void printDateTime(const RtcDateTime &date) { // Example code from DS3231_Simple
                date.Minute(),
                date.Second());
 
-    todaysDateAndWeather = dateString;
-    Blynk.virtualWrite(V7, todaysDateAndWeather + ". ");
+    return dateString;
 }
 
-void GetWeatherInfo() {
+JsonObject weather_0;
+JsonObject mainInfo;
+
+void ConnectToOpenWeatherMap() {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
 
@@ -546,9 +550,9 @@ void GetWeatherInfo() {
             }
 
             // Json
-            JsonObject weather_0 = doc["weather"][0];
-            JsonObject mainInfo = doc["main"];
-            WeatherInfoToSerial(weather_0, mainInfo);
+            weather_0 = doc["weather"][0];
+            mainInfo = doc["main"];
+            GetWeatherInfo();
         } else {
             Serial.println("Error on HTTP request");
         }
@@ -556,13 +560,11 @@ void GetWeatherInfo() {
     }
 }
 
-// Temp method for printing info to Serial
-void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo) {
-    const char *weatherDescription = weatherInfo["description"];
+void GetWeatherInfo() {
+    const char *weatherDescription = weather_0["description"];
     float mainInfo_temp = mainInfo["temp"];
-    todaysDateAndWeather += String(weatherDescription) + ". " + mainInfo_temp + "C";
-    Blynk.virtualWrite(V7, todaysDateAndWeather + ". ");
 
+    weather = String(weatherDescription) + ". " + mainInfo_temp + "C";
 }
 
 String ErrorCheckingSensors() {
@@ -634,7 +636,7 @@ void RtcErrorCheckingAndUpdatingDate() {
 }
 
 // Delay timer but with millis. Runs every 1500ms.
-void UpdateWeatherInfoTimer() {
+void TimerMillis() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
 
