@@ -141,7 +141,7 @@ enum Fruits {
 };
 
 Fruits currentState; // Will be set to Bananas by default in Setup()
-int stateNumber = 0; // 0 will default to Bananas
+int stateNumber;     // 0 will default to Bananas
 bool isStateChanged = false;
 
 float minTemp;
@@ -165,6 +165,7 @@ void GetLightSensorInfo();
 void FruitStateTransition();
 void UpdateFruitStateConditions();
 void CheckSensorData();
+void TimerMillis();
 //
 // Forward declarations
 
@@ -228,7 +229,7 @@ void setup() {
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
-    timer.setInterval(1000L, CheckSensorData);
+    //timer.setInterval(1000L, CheckSensorData);
 }
 
 void loop() {
@@ -236,11 +237,13 @@ void loop() {
     timer.run();
 
     if (isStateChanged) {
-    Serial.println("stateNumber after: " + stateNumber);
+        Serial.println("Did i enter to change state variables????");
         FruitStateTransition();
         UpdateFruitStateConditions();
         isStateChanged = false;
     }
+
+    TimerMillis();
 
     /*
         Checks a method that revceives info from Blynk
@@ -252,6 +255,7 @@ void UpdateFruitStateConditions() {
     if (currentState == Banana) {
         Blynk.setProperty(V0, "label", "Current target: Bananas");
         // Ideal range 18.5 - 27.7 is the average from 3 refs
+        Serial.println("Changing to Banana variables");
         minTemp = 15;
         maxTemp = 30;
         idealLowTemp = 18.5;
@@ -261,6 +265,7 @@ void UpdateFruitStateConditions() {
     } else if (currentState == Pineapple) {
         Blynk.setProperty(V0, "label", "Current target: Pineapples");
         // Ideal range 21.5 - 31 is the average from 2 refs
+        Serial.println("Changing to Pineapple variables");
         minTemp = 10;
         maxTemp = 35;
         idealLowTemp = 21.5;
@@ -288,14 +293,11 @@ void CheckSensorData() {
 
     if (temperature >= idealLowTemp && temperature <= idealHighTemp) { // Good
         BlynkGreenhouseColor = "#228B22";                              // green
-        blynkGreenhouseString = "Temperatures are within ideal range";
-    } else if ((temperature > minTemp && temperature < idealLowHumidity) || (temperature > idealHighTemp && temperature < maxTemp)) {
-        // not so ideal - show warning message
+        blynkGreenhouseString = "Temperatures are within ideal range (" + String(idealLowTemp) + " - " + String(idealHighTemp) + ")";
+    } else if ((temperature > minTemp && temperature < idealLowTemp) || (temperature > idealHighTemp && temperature < maxTemp)) {
         BlynkGreenhouseColor = "#FFC300";       //orange
         blynkGreenhouseString = "Warning, temperature is not within ideal range";
-
     } else if (temperature < minTemp || temperature > maxTemp) {
-        // show critical danger message
         BlynkGreenhouseColor = "#C70039";       //red
         blynkGreenhouseString = "Warning, temperature is reaching dangerous levels";
     }
@@ -303,7 +305,6 @@ void CheckSensorData() {
     Blynk.setProperty(V9, "color", BlynkGreenhouseColor);
     Blynk.setProperty(V9, "label", BlynkGreenhouseLabel);
     Blynk.virtualWrite(V9, blynkGreenhouseString);
-
 }
 
 
@@ -443,7 +444,7 @@ void TimerMillis() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
         // When 1500ms pass, do something in here
-
+        CheckSensorData();
         //
         previousMillis = currentMillis;
     }
