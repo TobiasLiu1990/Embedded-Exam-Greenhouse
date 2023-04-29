@@ -76,6 +76,22 @@
     Bright indirect aka. indirect light is over 3000lux.
 
     Pineapples and bananas has different ideal conditions. Se info above.
+
+
+
+    Integrated sensor for temperature seems to get too hot.
+    Uses DH11 now to check the temp.
+        - Been running for about 10mins
+        - Current room temperature with DH11: 24.40C
+        - Current humidity: 10.00 - 11.00%
+
+        * can do -40 to 80 (0.5C sensitivity)
+        * 0 - 100% humidity (2-5% accuracy)
+
+
+    Comparing to ESP32 integrated. Sfter running for around 5min:
+        - Temp: 33.4C 
+        - Humidity: 15.89%
 */
 
 #include <Adafruit_DotStar.h>
@@ -229,7 +245,7 @@ void setup() {
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
-    //timer.setInterval(1000L, CheckSensorData);
+    timer.setInterval(1000L, CheckSensorData);
 }
 
 void loop() {
@@ -242,8 +258,6 @@ void loop() {
         UpdateFruitStateConditions();
         isStateChanged = false;
     }
-
-    TimerMillis();
 
     /*
         Checks a method that revceives info from Blynk
@@ -444,8 +458,7 @@ void TimerMillis() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
         // When 1500ms pass, do something in here
-        CheckSensorData();
-        //
+        
         previousMillis = currentMillis;
     }
 }
