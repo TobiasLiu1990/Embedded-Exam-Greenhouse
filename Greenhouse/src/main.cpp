@@ -89,8 +89,8 @@
         * 0 - 100% humidity (2-5% accuracy)
 
 
-    Comparing to ESP32 integrated. After running for around 5min:
-        - Temp: 33.4C
+    Comparing to ESP32 integrated. After running for around 15min:
+        - Temp: 33.88C
         - Humidity: 15.89%
 
 
@@ -152,9 +152,6 @@ ltr329_gain_t bananaGain = LTR3XX_GAIN_4; // GAIN_4 = 0.25 lux - 16k lux
 ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
 ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 
-float temperature = 0;
-float humidity = 0;
-
 bool isConnected = false;
 unsigned long previousMillis = 0;
 const long waitInterval = 6000;
@@ -169,6 +166,10 @@ Fruits currentState; // Will be set to Bananas by default in Setup()
 int stateNumber;     // 0 will default to Bananas
 bool isStateChanged = false;
 
+const float temperatureDifference = 33.88 - 24.40;
+const float humidityDifference = 15.89 - 11;
+float temperature = 0;
+float humidity = 0;
 float minTemp;
 float maxTemp;
 float idealLowTemp;
@@ -195,9 +196,10 @@ void CheckHumidityData();
 void TimerMillis();
 void ResetBlynkWidget();
 void ResetBlynkWidget();
-void UpdateBlynkWidgetColor(char vp, String color);
 void initBlynk();
+void UpdateBlynkWidgetColor(char vp, String color);
 void UpdateBlynkWidgetContent(char vp, String message);
+void UpdateBlynkWidgetLabel(char vp, String message);
 //
 // Forward declarations
 
@@ -280,7 +282,7 @@ void initBlynk() {
 void UpdateFruitStateConditions() {
     if (currentState == Banana) {
         // Ideal range 18.5 - 27.7 is the average from 3 refs
-        UpdateBlynkWidgetContent(V0, "Current target: Bananas");
+        UpdateBlynkWidgetLabel(V0, "Current target: Bananas");
         UpdateBlynkWidgetColor(V0, "#E6D22A"); // Yellow
 
         Serial.println("Changing to Banana variables");
@@ -292,7 +294,7 @@ void UpdateFruitStateConditions() {
         idealHighHumidity = 100;
     } else if (currentState == Pineapple) {
         // Ideal range 21.5 - 31 is the average from 2 refs
-        UpdateBlynkWidgetContent(V0, "Current target: Pineapples");
+        UpdateBlynkWidgetLabel(V0, "Current target: Pineapples");
         UpdateBlynkWidgetColor(V0, "#87DE24"); // Green-ish
 
         Serial.println("Changing to Pineapple variables");
@@ -364,7 +366,7 @@ void UpdateFanSettings() {
 void ReadTemperature() {
     // dht.temperature().getEvent(&sensorEvent);
     // temperature = sensorEvent.temperature;
-    temperature = sht31.readTemperature();
+    temperature = sht31.readTemperature() - temperatureDifference;
 
     if (!isnan(temperature)) {
         Blynk.virtualWrite(V1, temperature);
@@ -378,7 +380,7 @@ void ReadTemperature() {
 void ReadHumidity() {
     // dht.humidity().getEvent(&sensorEvent);
     // humidity = sensorEvent.relative_humidity;
-    humidity = sht31.readHumidity();
+    humidity = sht31.readHumidity() - humidityDifference;
 
     if (!isnan(humidity)) {
         Blynk.virtualWrite(V2, humidity);
@@ -421,13 +423,18 @@ void ResetBlynkWidget() {
     UpdateBlynkWidgetContent(V8, "Should show status message"); // Greenhouse status message
 }
 
-void UpdateBlynkWidgetColor(char vp, String color) {
-    Blynk.setProperty(vp, "color", color);
+void UpdateBlynkWidgetLabel(char vp, String message) {
+    Blynk.setProperty(vp, "label", message);
 }
 
 void UpdateBlynkWidgetContent(char vp, String message) {
     Blynk.virtualWrite(vp, message);
 }
+
+void UpdateBlynkWidgetColor(char vp, String color) {
+    Blynk.setProperty(vp, "color", color);
+}
+
 
 void GetWeatherInfo() {
     if (WiFi.status() == WL_CONNECTED) {
