@@ -165,7 +165,7 @@ ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 
 bool isConnected = false;
 unsigned long previousMillis = 0;
-const long waitInterval = 6000;
+const long waitInterval = 10000;
 
 // Using this for FSM
 enum Fruits {
@@ -177,6 +177,8 @@ Fruits currentState; // Will be set to Bananas by default in Setup()
 int stateNumber;     // 0 will default to Bananas
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
+
+String todaysDateAndWeather = "";
 
 const float temperatureDifference = 33.88 - 24.40;
 const float humidityDifference = 15.89 - 11;
@@ -194,6 +196,7 @@ String BlynkStatusWidgetColor = ""; // https://htmlcolorcodes.com/colors/shades-
 // Forward declarations
 //
 String ErrorCheckingSensors();
+void ShowTodaysDateAndWeather();
 void GetWeatherInfo();
 void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo);
 void ReadTemperature();
@@ -205,7 +208,7 @@ void UpdateFruitStateConditions();
 void CheckSensorData();
 void CheckTemperatureData();
 void CheckHumidityData();
-void TimerMillis();
+void UpdateWeatherInfoTimer();
 void ResetBlynkWidget();
 void ResetBlynkWidget();
 void initBlynk();
@@ -214,8 +217,8 @@ void UpdateBlynkWidgetContent(char vp, String message);
 void UpdateBlynkWidgetLabel(char vp, String message);
 
 void printDateTime(const RtcDateTime &date);
-void ShowDateAndTime();
-void RtcErrorCheckingAndUpdatingDate();         //Might need to fix a bit later. Currently copied from Rtc by Makuna example.
+void GetDateAndTime();
+void RtcErrorCheckingAndUpdatingDate(); // Might need to fix a bit later. Currently copied from Rtc by Makuna example.
 //
 // Forward declarations
 
@@ -308,7 +311,7 @@ void setup() {
 
     // Blynk .setInterval can not take a function with arguments
     // timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
-    timer.setInterval(1000L, ShowDateAndTime);
+    timer.setInterval(1000L, ShowTodaysDateAndWeather);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
@@ -418,28 +421,6 @@ void UpdateFanSettings() {
     // Also an override in Blynk to manually change temperature. Maybe need a bool for true/false for auto/manual.
 }
 
-void ShowDateAndTime() {
-    RtcDateTime dateTime = Rtc.GetDateTime();
-    printDateTime(dateTime);
-}
-
-#define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
-
-void printDateTime(const RtcDateTime &date) { // Example code from DS3231_Simple (Rtc by Makuna)
-    char dateString[20];
-
-    snprintf_P(dateString,                            // buffer
-               countof(dateString),                   // max number of bytes (char), written to buffer
-               PSTR("%02u/%02u/%04u %02u:%02u:%02u"), // PSTR reads from flash mem. n (...) is for formating
-               date.Month(),                          // rest of params to format
-               date.Day(),
-               date.Year(),
-               date.Hour(),
-               date.Minute(),
-               date.Second());
-    Serial.println(dateString);
-}
-
 void ReadTemperature() {
     // dht.temperature().getEvent(&sensorEvent);
     // temperature = sensorEvent.temperature;
@@ -512,6 +493,41 @@ void UpdateBlynkWidgetColor(char vp, String color) {
     Blynk.setProperty(vp, "color", color);
 }
 
+void ShowTodaysDateAndWeather() {
+    GetDateAndTime();
+
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= waitInterval) {
+        GetWeatherInfo();
+        previousMillis = currentMillis;
+    }
+    
+}
+
+void GetDateAndTime() {
+    RtcDateTime now = Rtc.GetDateTime();
+    printDateTime(now);
+}
+
+#define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
+
+void printDateTime(const RtcDateTime &date) { // Example code from DS3231_Simple (Rtc by Makuna)
+    char dateString[20];
+
+    snprintf_P(dateString,                            // buffer
+               countof(dateString),                   // max number of bytes (char), written to buffer
+               PSTR("%02u/%02u/%04u %02u:%02u:%02u"), // PSTR reads from flash mem. n (...) is for formating
+               date.Month(),                          // rest of params to format
+               date.Day(),
+               date.Year(),
+               date.Hour(),
+               date.Minute(),
+               date.Second());
+
+    todaysDateAndWeather = dateString;
+    Blynk.virtualWrite(V7, todaysDateAndWeather + ". ");
+}
+
 void GetWeatherInfo() {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
@@ -543,27 +559,10 @@ void GetWeatherInfo() {
 // Temp method for printing info to Serial
 void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo) {
     const char *weatherDescription = weatherInfo["description"];
-
     float mainInfo_temp = mainInfo["temp"];
-    float mainInfo_minTemp = mainInfo["temp_min"];
-    float mainInfo_maxTemp = mainInfo["temp_max"];
-    int mainInfo_humidity = mainInfo["humidity"];
+    todaysDateAndWeather += String(weatherDescription) + ". " + mainInfo_temp + "C";
+    Blynk.virtualWrite(V7, todaysDateAndWeather + ". ");
 
-    Serial.println("Weather status: ");
-    Serial.print("Current weather: ");
-    Serial.println(weatherDescription);
-
-    Serial.print("Temperature: ");
-    Serial.println(mainInfo_temp);
-
-    Serial.print("Lowest temperature today: ");
-    Serial.println(mainInfo_minTemp);
-
-    Serial.print("Highest temperature today: ");
-    Serial.println(mainInfo_maxTemp);
-
-    Serial.print("Humidity %: ");
-    Serial.println(mainInfo_humidity);
 }
 
 String ErrorCheckingSensors() {
@@ -634,15 +633,11 @@ void RtcErrorCheckingAndUpdatingDate() {
     wasError("setup SetSquareWavePin");
 }
 
-void GetTime() {
-    // currentDate = new Date();
-}
-
 // Delay timer but with millis. Runs every 1500ms.
-void TimerMillis() {
+void UpdateWeatherInfoTimer() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
-        // When 1500ms pass, do something in here
+
         previousMillis = currentMillis;
     }
 }

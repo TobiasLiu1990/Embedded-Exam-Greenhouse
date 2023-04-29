@@ -8,5 +8,9 @@
 			"path": "Greenhouse"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"random": "cpp"
+		}
+	}
 }
