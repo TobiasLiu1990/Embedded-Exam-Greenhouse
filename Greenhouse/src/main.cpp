@@ -26,37 +26,37 @@
 /** Placeholder - information on greenhouse
  *      * https://www.growspan.com/news/understanding-greenhouse-lighting/#:~:text=Greenhouses%20generally%20require%20six%20hours,promote%20crop%20growth%20and%20yield
  *          - 6h of direkt or full spectrum light each day in a greenhouse is good.
- * 
- * 
+ *
+ *
  *      * https://www.mrhouseplant.com/blog/what-is-bright-indirect-light-for-plants/#:~:text=Most%20house%20plants%20need%20bright,will%20be%20happier%20and%20healthier
  *          - Bright indirect light or indirect light is > 3000 lux
  *          - Good for indoor plants.
  *          - Stronger indirect light over 10000 lux - 15000 lux will increase photosynthesis, speed up growth. Better.
  *
- * 
+ *
  *      * https://www.mrhouseplant.com/blog/caring-for-a-pineapple-plant-101-ananas-comosus-tips-tricks/
  *          - Pineapple  min 10000 lux - max 40000 lux
  *          - Temp between 18 - 24
  *          - Humidity 25% - 50%
  *          - Direct sun tolerance: 8h
- * 
+ *
  *          - in bright indirect light (3000 lux), they can grow but very slow. High chance to not produce fruit.
  *
- * 
- * 
+ *
+ *
  *      * https://solarinnovations.com/news/blog/banana-tree-growing-tips/#:~:text=Banana%20trees%20are%20a%20must,they%20take%20up%20less%20space
- *          - 12h sun per day 
+ *          - 12h sun per day
  *          - 19.4 C at night
  *          - 29.4 C during day
  *          - humidity 50%
- * 
+ *
  *      * https://www.rhs.org.uk/plants/banana/growing-guide
  *          - min 15C
  *          - ideal 27C
- * 
+ *
  *      * https://www.gardenguides.com/75976-grow-bananas-greenhouse.html
  *          - ideal: 21.1 - 26.6
-*/
+ */
 
 /*
     General role for a greenhouse seems to be that 6h of direkt light per day is good.
@@ -73,8 +73,8 @@
 #include <i2cdetect.h>
 
 // Sensors
-#include "Adafruit_LTR329_LTR303.h"     //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux. 
-#include "Adafruit_SHT31.h"             //Temperature and humidity sensor
+#include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
+#include "Adafruit_SHT31.h"         //Temperature and humidity sensor
 // Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Blynk
@@ -102,10 +102,17 @@ char auth[] = BLYNK_AUTH_TOKEN;  // Blynk token
 char ssidBlynk[] = "Venti_2.4G"; // wifi
 char pass[] = "NikitaBoy";       // wifi pw
 
-
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
+
+ltr329_gain_t pineappleGain = LTR3XX_GAIN_1; // GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
+ltr329_integrationtime_t pineappleIntegTime = LTR3XX_INTEGTIME_100;
+ltr329_measurerate_t pineappleMeasurementRate = LTR3XX_MEASRATE_100;
+
+ltr329_gain_t bananaGain = LTR3XX_GAIN_4; // GAIN_4 = 0.25 lux - 16k lux
+ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
+ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 
 float temperature;
 float humidity;
@@ -114,13 +121,15 @@ bool isConnected = false;
 unsigned long previousMillis = 0;
 const long waitInterval = 1500;
 
-ltr329_gain_t pineappleGain = LTR3XX_GAIN_1;        //GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
-ltr329_integrationtime_t pineappleIntegTime = LTR3XX_INTEGTIME_100;
-ltr329_measurerate_t pineappleMeasurementRate = LTR3XX_MEASRATE_100;
+// Using this for FSM
+enum Fruits {
+    Banana,
+    Pineapple
+};
 
-ltr329_gain_t bananaGain = LTR3XX_GAIN_4;           //GAIN_4 = 0.25 lux - 16k lux
-ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
-ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
+Fruits currentState; // Will be set to Bananas by default in Setup()
+int stateNumber = 0; // 0 will default to Bananas
+bool isStateChanged = false;
 
 // Forward declarations
 //
@@ -131,23 +140,24 @@ void ReadTemperature();
 void ReadHumidity();
 void SetLightSensor();
 void GetLightSensorInfo();
+void FruitStateTransition();
+void UpdateFruitStateConditions();
 //
 // Forward declarations
-
 
 // Blynk
 //
 // This function is called every time the Virtual Pin 0 state changes
-BLYNK_WRITE(V0) {
-    //int value = param.asInt(); // Save incoming value from virtual pin V0
-    //digitalWrite(LED_BUILTIN, value);
+BLYNK_WRITE(V6) {
+    stateNumber = param.asInt();
+    isStateChanged = true;
 }
 
 BLYNK_CONNECTED() {
     // Change Web Link Button message to "Congratulations!"
-    //Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
-    //Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
-    //Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
+    // Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
+    // Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
+    // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
 }
 
 // This function sends Arduino's uptime every second to Virtual Pin 2.
@@ -159,11 +169,11 @@ void UptimeCounter() {
 //
 // Blynk
 
-
 void setup() {
     Serial.begin(115200);
     Wire.begin(3, 4); // i2c SDC, SCL
     pinMode(LED_BUILTIN, OUTPUT);
+    currentState = Banana;
     delay(1000);
 
     ErrorCheckingSensors();
@@ -188,8 +198,8 @@ void setup() {
         Serial.println("Now connected to Blynk Greenhouse!!!");
     }
 
-    //Blynk .setInterval can not take a function with arguments
-    //timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
+    // Blynk .setInterval can not take a function with arguments
+    // timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
     timer.setInterval(1000L, UptimeCounter);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
@@ -199,6 +209,50 @@ void setup() {
 void loop() {
     Blynk.run();
     timer.run();
+
+
+    if (isStateChanged) {
+        FruitStateTransition();
+        UpdateFruitStateConditions();
+        isStateChanged = false;
+    }
+
+    /*
+        Checks a method that revceives info from Blynk:
+            Check numbers for example
+            0 -> Change state to Banana
+              -> Set label to Banana Mode
+              -> Settings should follow conditions for bananas (temps, humidity, light measuing for error checking etc. Fans etc.)
+    */
+}
+
+void UpdateFruitStateConditions() {
+    if (currentState == Banana) {
+        Blynk.setProperty(V6, "label", "Current target: Bananas");
+        /*
+            Change error checking for ideal banana environment
+        */
+    }
+    else if (currentState == Pineapple) {
+        Blynk.setProperty(V6, "label", "Current target: Pineapples");
+        /*
+            Change error checking for ideal banana environment
+        */
+    }
+}
+
+
+void FruitStateTransition() {
+    enum Fruits lastState = currentState;
+
+    switch (stateNumber) {
+    case 0:
+        currentState = Banana;
+        break;
+    case 1:
+        currentState = Pineapple;
+        break;
+    }
 }
 
 void GetWeatherInfo() {
@@ -301,17 +355,17 @@ void ReadHumidity() {
 
 void SetLightSensor() {
     ltr329.setGain(LTR3XX_GAIN_4);
-    ltr329.setIntegrationTime(LTR3XX_INTEGTIME_200);        //Amount of time available to obtain a measurement during which there is essentially no change in the level of the signal
-    ltr329.setMeasurementRate(LTR3XX_MEASRATE_200);         //Number of measurement values generated per second
+    ltr329.setIntegrationTime(LTR3XX_INTEGTIME_200); // Amount of time available to obtain a measurement during which there is essentially no change in the level of the signal
+    ltr329.setMeasurementRate(LTR3XX_MEASRATE_200);  // Number of measurement values generated per second
 
     GetLightSensorInfo();
 }
 
-uint16_t visibleAndIr;      //Should maybe only measure visible for plants? 
-uint16_t infrared;          //IR produces heat but does not help photosynthesis...
+uint16_t visibleAndIr; // Should maybe only measure visible for plants?
+uint16_t infrared;     // IR produces heat but does not help photosynthesis...
 void GetLightSensorInfo() {
     if (ltr329.newDataAvailable()) {
-        bool data = ltr329.readBothChannels(visibleAndIr, infrared);    //1st param = ch0, 2nd param = ch1. Reads both 16-bit channels at once. Put data in argument pointers.
+        bool data = ltr329.readBothChannels(visibleAndIr, infrared); // 1st param = ch0, 2nd param = ch1. Reads both 16-bit channels at once. Put data in argument pointers.
         if (data) {
             String ch0 = String(visibleAndIr);
             String ch1 = String(infrared);
@@ -322,13 +376,12 @@ void GetLightSensorInfo() {
     }
 }
 
-
 void GetTime() {
     // currentDate = new Date();
 }
 
 // Delay timer but with millis. Runs every 1500ms.
-void Countdown() {
+void TimerMillis() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
         // When 1500ms pass, do something in here
@@ -344,11 +397,10 @@ void Countdown() {
 /*
  * varför yield()?
  * och varför delay efter?
- * 
+ *
  * ltr readbothchannels. Vad är det man får? Lux eller nm för våglängd av ljus?
- * 
-*/
-
+ *
+ */
 
 /*
   if (! lis.begin(0x18)) {
