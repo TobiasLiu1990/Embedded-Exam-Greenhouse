@@ -90,7 +90,7 @@
 
 
     Comparing to ESP32 integrated. Sfter running for around 5min:
-        - Temp: 33.4C 
+        - Temp: 33.4C
         - Humidity: 15.89%
 */
 
@@ -103,8 +103,11 @@
 
 // Sensors
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
-#include "Adafruit_SHT31.h"         //Temperature and humidity sensor
-// Later maybe add accelerometer to check if it has been flipped (for light sensor)
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
+// #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
+//  Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Blynk
 #include <BlynkSimpleEsp32.h>
@@ -118,9 +121,6 @@ const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,
 const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
 
-// Json
-StaticJsonDocument<1024> doc;
-
 // Blynk info
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
 #define BLYNK_TEMPLATE_NAME "Greenhouse"
@@ -131,8 +131,14 @@ char auth[] = BLYNK_AUTH_TOKEN;  // Blynk token
 char ssidBlynk[] = "Venti_2.4G"; // wifi
 char pass[] = "NikitaBoy";       // wifi pw
 
+StaticJsonDocument<1024> doc;
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
-Adafruit_SHT31 sht31 = Adafruit_SHT31();
+#define DHTPIN A1
+#define DHTTYPE DHT11
+DHT_Unified dht(DHTPIN, DHTTYPE);
+sensors_event_t sensorEvent;
+
+// Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
 
 ltr329_gain_t pineappleGain = LTR3XX_GAIN_1; // GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
@@ -143,12 +149,12 @@ ltr329_gain_t bananaGain = LTR3XX_GAIN_4; // GAIN_4 = 0.25 lux - 16k lux
 ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
 ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 
-float temperature;
-float humidity;
+float temperature = 0;
+float humidity = 0;
 
 bool isConnected = false;
 unsigned long previousMillis = 0;
-const long waitInterval = 1500;
+const long waitInterval = 6000;
 
 // Using this for FSM
 enum Fruits {
@@ -166,7 +172,6 @@ float idealLowTemp;
 float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
-String BlynkGreenhouseLabel = "Temperature and Humidity status";
 String blynkGreenhouseString = "";
 
 // Forward declarations
@@ -182,6 +187,10 @@ void FruitStateTransition();
 void UpdateFruitStateConditions();
 void CheckSensorData();
 void TimerMillis();
+void ResetBlynkWidget();
+void ResetBlynkWidget();
+void ResetBlynkWidgetColor(char vp, String color);
+void initBlynk();
 //
 // Forward declarations
 
@@ -238,6 +247,8 @@ void setup() {
     if (isConnected) {
         Blynk.begin(BLYNK_AUTH_TOKEN, ssidBlynk, pass);
         Serial.println("Now connected to Blynk Greenhouse!!!");
+        delay(1000);
+        initBlynk();    // Init Blynk with Banana as default
     }
 
     // Blynk .setInterval can not take a function with arguments
@@ -245,7 +256,7 @@ void setup() {
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
-    timer.setInterval(1000L, CheckSensorData);
+    timer.setInterval(6000L, CheckSensorData);
 }
 
 void loop() {
@@ -263,6 +274,13 @@ void loop() {
         Checks a method that revceives info from Blynk
               -> Settings should follow conditions for bananas (temps, humidity, light measuing for error checking etc. Fans etc.)
     */
+}
+
+void initBlynk() {
+    currentState = Banana; // Will be set to Bananas by default in Setup()
+    stateNumber = 0;       // 0 will default to Bananas
+    ResetBlynkWidget();
+    UpdateFruitStateConditions();
 }
 
 void UpdateFruitStateConditions() {
@@ -304,23 +322,21 @@ void FruitStateTransition() {
 
 String BlynkGreenhouseColor = ""; // https://htmlcolorcodes.com/colors/shades-of-green/
 void CheckSensorData() {
-
     if (temperature >= idealLowTemp && temperature <= idealHighTemp) { // Good
         BlynkGreenhouseColor = "#228B22";                              // green
         blynkGreenhouseString = "Temperatures are within ideal range (" + String(idealLowTemp) + " - " + String(idealHighTemp) + ")";
     } else if ((temperature > minTemp && temperature < idealLowTemp) || (temperature > idealHighTemp && temperature < maxTemp)) {
-        BlynkGreenhouseColor = "#FFC300";       //orange
+        BlynkGreenhouseColor = "#FFC300"; // orange
         blynkGreenhouseString = "Warning, temperature is not within ideal range";
     } else if (temperature < minTemp || temperature > maxTemp) {
-        BlynkGreenhouseColor = "#C70039";       //red
+        BlynkGreenhouseColor = "#C70039"; // red
         blynkGreenhouseString = "Warning, temperature is reaching dangerous levels";
+        Serial.println("Am i stuck in dangerous levels???");
     }
 
     Blynk.setProperty(V9, "color", BlynkGreenhouseColor);
-    Blynk.setProperty(V9, "label", BlynkGreenhouseLabel);
     Blynk.virtualWrite(V9, blynkGreenhouseString);
 }
-
 
 void UpdateFanSettings() {
     // Show fan rpm in Blynk.
@@ -386,13 +402,18 @@ void WeatherInfoToSerial(JsonObject weatherInfo, JsonObject mainInfo) {
 
 String ErrorCheckingSensors() {
     String checkSensors = "";
+    sensor_t sensor;
 
-    if (!sht31.begin(0x44)) { // default i2c address
-        checkSensors = "SHT31 - Cannot find sensor";
-        // Send some error to Blynk
-        while (1)
-            yield();
+    dht.temperature().getSensor(&sensor);
+    if (sensor.name == "") {
+        checkSensors = "Cannot find temperature sensor on DHT11";
     }
+
+    dht.humidity().getSensor(&sensor);
+    if (sensor.name == "") {
+        checkSensors = "Cannot find humidity sensor on DHT11";
+    }
+
     if (!ltr329.begin()) {
         checkSensors += "LTR329 - Cannot find sensor";
         // Send some error to Blynk
@@ -407,22 +428,28 @@ String ErrorCheckingSensors() {
 }
 
 void ReadTemperature() {
-    temperature = sht31.readTemperature();
+    dht.temperature().getEvent(&sensorEvent);
+    temperature = sensorEvent.temperature;
 
     if (!isnan(temperature)) {
         Blynk.virtualWrite(V1, temperature);
+        Serial.print(F("Temperature: "));
+        Serial.println(temperature);
     } else {
-        // error! send error message to blynk
+        Serial.println(F("Error, cannot read temperature "));
     }
 }
 
 void ReadHumidity() {
-    humidity = sht31.readHumidity();
+    dht.humidity().getEvent(&sensorEvent);
+    humidity = sensorEvent.relative_humidity;
 
     if (!isnan(humidity)) {
         Blynk.virtualWrite(V2, humidity);
+        Serial.print(F("Humidity: "));
+        Serial.println(humidity);
     } else {
-        // error! send error message to blynk
+        Serial.println(F("Error, cannot read Humidity"));
     }
 }
 
@@ -449,6 +476,22 @@ void GetLightSensorInfo() {
     }
 }
 
+void ResetBlynkWidget() {
+    String white = "#FFFFFF";
+
+    ResetBlynkWidgetColor(V0, white);                           // Fruit State widget
+    ResetBlynkWidgetColor(V0, white);                           // Greenhouse status color
+    ResetBlynkWidgetMessage(V9, "Should show status message");  // Greenhouse status message
+}
+
+void ResetBlynkWidgetColor(char vp, String color) {
+    Blynk.setProperty(vp, "color", color);
+}
+
+void ResetBlynkWidgetMessage(char vp, String message) {
+    Blynk.virtualWrite(vp, message);
+}
+
 void GetTime() {
     // currentDate = new Date();
 }
@@ -458,8 +501,6 @@ void TimerMillis() {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
         // When 1500ms pass, do something in here
-        
         previousMillis = currentMillis;
     }
 }
-
