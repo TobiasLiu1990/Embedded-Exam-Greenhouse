@@ -212,6 +212,13 @@ void initBlynk();
 void UpdateBlynkWidgetColor(char vp, String color);
 void UpdateBlynkWidgetContent(char vp, String message);
 void UpdateBlynkWidgetLabel(char vp, String message);
+
+RtcDateTime checkDateTimeErrors();
+void CheckRtcIsRunning();
+void CheckIfRtcDateNeedsUpdate(RtcDateTime now, RtcDateTime compiled);
+bool wasError(const char *errorTopic = "");
+void printDateTime(const RtcDateTime& date);
+void ShowDateAndTime();
 //
 // Forward declarations
 
@@ -287,6 +294,7 @@ void setup() {
 
     // Blynk .setInterval can not take a function with arguments
     // timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
+    timer.setInterval(1000L, ShowDateAndTime);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
@@ -394,6 +402,29 @@ void UpdateFanSettings() {
     // Greenhouse - important with ventilation so cold/hot air does not get trapped
 
     // Also an override in Blynk to manually change temperature. Maybe need a bool for true/false for auto/manual.
+}
+
+void ShowDateAndTime() {
+    RtcDateTime dateTime = Rtc.GetDateTime();
+    printDateTime(dateTime);
+    
+}
+
+#define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
+
+void printDateTime(const RtcDateTime& date) { // Example code from DS3231_Simple (Rtc by Makuna)
+    char dateString[20];
+    
+    snprintf_P(dateString,                            // buffer
+               countof(dateString),                   // max number of bytes (char), written to buffer
+               PSTR("%02u/%02u/%04u %02u:%02u:%02u"), // PSTR reads from flash mem. n (...) is for formating
+               date.Month(),                          // rest of params to format
+               date.Day(),
+               date.Year(),
+               date.Hour(),
+               date.Minute(),
+               date.Second());
+    Blynk.virtualWrite(V7, date);
 }
 
 void ReadTemperature() {
@@ -561,7 +592,7 @@ RtcDateTime checkDateTimeErrors() {
             if (runErrorHandlingOnce) {
                 Rtc.SetDateTime(compiled);
                 runErrorHandlingOnce = false;
-                return;
+                return compiled;
             }
         }
     }
@@ -589,6 +620,7 @@ void CheckIfRtcDateNeedsUpdate(RtcDateTime now, RtcDateTime compiled) {
         }
     }
 }
+
 
 bool wasError(const char *errorTopic = "") {
     uint8_t error = Rtc.LastError();
