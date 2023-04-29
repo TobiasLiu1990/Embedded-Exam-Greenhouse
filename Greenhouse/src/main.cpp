@@ -150,7 +150,7 @@ float idealLowTemp;
 float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
-String BlynkGreenhouseLabel = "";
+String BlynkGreenhouseLabel = "Temperature and Humidity status";
 String blynkGreenhouseString = "";
 
 // Forward declarations
@@ -183,12 +183,14 @@ BLYNK_CONNECTED() {
     // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
 }
 
-// This function sends Arduino's uptime every second to Virtual Pin 2.
+/*
 void UptimeCounter() {
     // You can send any value at any time.
     // Please don't send more that 10 values per second.
     Blynk.virtualWrite(V1, millis() / 1000);
 }
+*/
+
 //
 // Blynk
 
@@ -223,11 +225,10 @@ void setup() {
 
     // Blynk .setInterval can not take a function with arguments
     // timer.setInterval(5000L, GetWeatherInfo); // Openweathermap.org API for weather info
-    timer.setInterval(1000L, UptimeCounter);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
-    timer.setInterval(2000L, CheckSensorData);
+    timer.setInterval(1000L, CheckSensorData);
 }
 
 void loop() {
@@ -235,18 +236,14 @@ void loop() {
     timer.run();
 
     if (isStateChanged) {
+    Serial.println("stateNumber after: " + stateNumber);
         FruitStateTransition();
         UpdateFruitStateConditions();
         isStateChanged = false;
-    } else {
-        CheckSensorData();
     }
 
     /*
-        Checks a method that revceives info from Blynk:
-            Check numbers for example
-            0 -> Change state to Banana
-              -> Set label to Banana Mode
+        Checks a method that revceives info from Blynk
               -> Settings should follow conditions for bananas (temps, humidity, light measuing for error checking etc. Fans etc.)
     */
 }
@@ -277,39 +274,45 @@ void FruitStateTransition() {
     switch (stateNumber) {
     case 0:
         currentState = Banana;
+        Serial.println("Banana state now");
         break;
     case 1:
         currentState = Pineapple;
+        Serial.println("pineapple state now");
         break;
     }
 }
 
-
+String BlynkGreenhouseColor = ""; // https://htmlcolorcodes.com/colors/shades-of-green/
 void CheckSensorData() {
-    if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
-        BlynkGreenhouseLabel = "Temperature is within ideal range of: ";
-        blynkGreenhouseString = String(idealLowTemp) + " - " + String(idealHighTemp);
-    } else {
-        BlynkGreenhouseLabel = "Temperature is at a dangerous level of: " + String(temperature) + "\n";
+
+    if (temperature >= idealLowTemp && temperature <= idealHighTemp) { // Good
+        BlynkGreenhouseColor = "#228B22";                              // green
+        blynkGreenhouseString = "Temperatures are within ideal range";
+    } else if ((temperature > minTemp && temperature < idealLowHumidity) || (temperature > idealHighTemp && temperature < maxTemp)) {
+        // not so ideal - show warning message
+        BlynkGreenhouseColor = "#FFC300";       //orange
+        blynkGreenhouseString = "Warning, temperature is not within ideal range";
+
+    } else if (temperature < minTemp || temperature > maxTemp) {
+        // show critical danger message
+        BlynkGreenhouseColor = "#C70039";       //red
+        blynkGreenhouseString = "Warning, temperature is reaching dangerous levels";
     }
 
-    if (humidity >= idealLowHumidity && humidity <= idealHighHumidity) {
-        BlynkGreenhouseLabel += "Humidity is within ideal range of" + String(idealLowHumidity) + " - " + String(idealHighHumidity);
-    } else {
-        BlynkGreenhouseLabel += "Humidity is at a dangerous level of: " + String(humidity) + "\n";
-    }
+    Blynk.setProperty(V9, "color", BlynkGreenhouseColor);
+    Blynk.setProperty(V9, "label", BlynkGreenhouseLabel);
+    Blynk.virtualWrite(V9, blynkGreenhouseString);
 
-    Blynk.setProperty(V8, "label", BlynkGreenhouseLabel);
-    Blynk.virtualWrite(V8, "noooo");
 }
 
 
 void UpdateFanSettings() {
-    //Show fan rpm in Blynk.
-    //Try to get fan to run automatically depending on temperatures
-    //Greenhouse - important with ventilation so cold/hot air does not get trapped
+    // Show fan rpm in Blynk.
+    // Try to get fan to run automatically depending on temperatures
+    // Greenhouse - important with ventilation so cold/hot air does not get trapped
 
-    //Also an override in Blynk to manually change temperature. Maybe need a bool for true/false for auto/manual.
+    // Also an override in Blynk to manually change temperature. Maybe need a bool for true/false for auto/manual.
 }
 
 void GetWeatherInfo() {
@@ -373,13 +376,13 @@ String ErrorCheckingSensors() {
         checkSensors = "SHT31 - Cannot find sensor";
         // Send some error to Blynk
         while (1)
-            delay(1);
+            yield();
     }
     if (!ltr329.begin()) {
         checkSensors += "LTR329 - Cannot find sensor";
         // Send some error to Blynk
         while (1)
-            delay(10);
+            yield();
     }
 
     if (checkSensors == "") {
@@ -446,33 +449,3 @@ void TimerMillis() {
     }
 }
 
-//----------QUESTIONS---------------
-// Check if ok to borrow error code jenschr:
-
-/*
- * varför yield()?
- * och varför delay efter?
- *
- * ltr readbothchannels. Vad är det man får? Lux eller nm för våglängd av ljus?
- *
- */
-
-/*
-  if (! lis.begin(0x18)) {
-    Serial.println("Couldn't find LIS3DH sensor!");
-    while (1) yield();
-  }
-  Serial.println("Found LIS3DH sensor!");
-
-  if (! sht31.begin(0x44)) {
-    Serial.println("Couldn't find SHT31 sensor!");
-    while (1) delay(1);
-  }
-  Serial.println("Found SHT31 sensor!");
-
-  if ( ! ltr.begin() ) {
-    Serial.println("Couldn't find LTR sensor!");
-    while (1) delay(10);
-  }
-
-*/
