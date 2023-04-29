@@ -213,12 +213,9 @@ void UpdateBlynkWidgetColor(char vp, String color);
 void UpdateBlynkWidgetContent(char vp, String message);
 void UpdateBlynkWidgetLabel(char vp, String message);
 
-RtcDateTime checkDateTimeErrors();
-void CheckRtcIsRunning();
-void CheckIfRtcDateNeedsUpdate(RtcDateTime now, RtcDateTime compiled);
-bool wasError(const char *errorTopic = "");
-void printDateTime(const RtcDateTime& date);
+void printDateTime(const RtcDateTime &date);
 void ShowDateAndTime();
+void RtcErrorCheckingAndUpdatingDate();         //Might need to fix a bit later. Currently copied from Rtc by Makuna example.
 //
 // Forward declarations
 
@@ -239,36 +236,53 @@ BLYNK_CONNECTED() {
 //
 // Blynk
 
+bool wasError(const char *errorTopic = "") {
+    uint8_t error = Rtc.LastError();
+    if (error != 0) {
+        // we have a communications error
+        // see https://www.arduino.cc/reference/en/language/functions/communication/wire/endtransmission/
+        // for what the number means
+        Serial.print("[");
+        Serial.print(errorTopic);
+        Serial.print("] WIRE communications error (");
+        Serial.print(error);
+        Serial.print(") : ");
+
+        switch (error) {
+        case Rtc_Wire_Error_None:
+            Serial.println("(none?!)");
+            break;
+        case Rtc_Wire_Error_TxBufferOverflow:
+            Serial.println("transmit buffer overflow");
+            break;
+        case Rtc_Wire_Error_NoAddressableDevice:
+            Serial.println("no device responded");
+            break;
+        case Rtc_Wire_Error_UnsupportedRequest:
+            Serial.println("device doesn't support request");
+            break;
+        case Rtc_Wire_Error_Unspecific:
+            Serial.println("unspecified error");
+            break;
+        case Rtc_Wire_Error_CommunicationTimeout:
+            Serial.println("communications timed out");
+            break;
+        }
+        return true;
+    }
+    return false;
+}
+
 void setup() {
     Serial.begin(115200);
     Wire.begin(3, 4); // i2c SDC, SCL
     Rtc.Begin();
+
     pinMode(LED_BUILTIN, OUTPUT);
     currentState = Banana;
 
     // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
-    RtcDateTime compiled = checkDateTimeErrors();
-    CheckRtcIsRunning();
-    RtcDateTime now = Rtc.GetDateTime();
-    CheckIfRtcDateNeedsUpdate(now, compiled);
-
-    if (!wasError("setup GetDateTime")) {
-        if (now < compiled) {
-            Serial.println("RTC is older than compile time, updating DateTime");
-            Rtc.SetDateTime(compiled);
-        } else if (now > compiled) {
-            Serial.println("RTC is newer than compile time, this is expected");
-        } else if (now == compiled) {
-            Serial.println("RTC is the same as compile time, while not expected all is still fine");
-        }
-    }
-
-    // never assume the Rtc was last configured by you, so
-    // just clear them to your needed state
-    Rtc.Enable32kHzPin(false);
-    wasError("setup Enable32kHzPin");
-    Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
-    wasError("setup SetSquareWavePin");
+    RtcErrorCheckingAndUpdatingDate();
 
     ErrorCheckingSensors();
     delay(1000);
@@ -407,14 +421,13 @@ void UpdateFanSettings() {
 void ShowDateAndTime() {
     RtcDateTime dateTime = Rtc.GetDateTime();
     printDateTime(dateTime);
-    
 }
 
 #define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
 
-void printDateTime(const RtcDateTime& date) { // Example code from DS3231_Simple (Rtc by Makuna)
+void printDateTime(const RtcDateTime &date) { // Example code from DS3231_Simple (Rtc by Makuna)
     char dateString[20];
-    
+
     snprintf_P(dateString,                            // buffer
                countof(dateString),                   // max number of bytes (char), written to buffer
                PSTR("%02u/%02u/%04u %02u:%02u:%02u"), // PSTR reads from flash mem. n (...) is for formating
@@ -424,7 +437,7 @@ void printDateTime(const RtcDateTime& date) { // Example code from DS3231_Simple
                date.Hour(),
                date.Minute(),
                date.Second());
-    Blynk.virtualWrite(V7, date);
+    Serial.println(dateString);
 }
 
 void ReadTemperature() {
@@ -573,9 +586,10 @@ String ErrorCheckingSensors() {
     return checkSensors;
 }
 
-RtcDateTime checkDateTimeErrors() {
-    // Error checking code taken from DS3231_Simple (Rtc by Hakuna)
+void RtcErrorCheckingAndUpdatingDate() {
     RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+    printDateTime(compiled);
+    Serial.println();
 
     if (!Rtc.IsDateTimeValid()) {
         if (!wasError("setup IsDateTimeValid")) {
@@ -589,26 +603,18 @@ RtcDateTime checkDateTimeErrors() {
             // it will also reset the valid flag internally unless the Rtc device is
             // having an issue
 
-            if (runErrorHandlingOnce) {
-                Rtc.SetDateTime(compiled);
-                runErrorHandlingOnce = false;
-                return compiled;
-            }
+            Rtc.SetDateTime(compiled);
         }
     }
-    return compiled;
-}
 
-void CheckRtcIsRunning() {
     if (!Rtc.GetIsRunning()) {
         if (!wasError("setup GetIsRunning")) {
             Serial.println("RTC was not actively running, starting now");
             Rtc.SetIsRunning(true);
         }
     }
-}
 
-void CheckIfRtcDateNeedsUpdate(RtcDateTime now, RtcDateTime compiled) {
+    RtcDateTime now = Rtc.GetDateTime();
     if (!wasError("setup GetDateTime")) {
         if (now < compiled) {
             Serial.println("RTC is older than compile time, updating DateTime");
@@ -619,44 +625,13 @@ void CheckIfRtcDateNeedsUpdate(RtcDateTime now, RtcDateTime compiled) {
             Serial.println("RTC is the same as compile time, while not expected all is still fine");
         }
     }
-}
 
-
-bool wasError(const char *errorTopic = "") {
-    uint8_t error = Rtc.LastError();
-    if (error != 0) {
-        // we have a communications error
-        // see https://www.arduino.cc/reference/en/language/functions/communication/wire/endtransmission/
-        // for what the number means
-        Serial.print("[");
-        Serial.print(errorTopic);
-        Serial.print("] WIRE communications error (");
-        Serial.print(error);
-        Serial.print(") : ");
-
-        switch (error) {
-        case Rtc_Wire_Error_None:
-            Serial.println("(none?!)");
-            break;
-        case Rtc_Wire_Error_TxBufferOverflow:
-            Serial.println("transmit buffer overflow");
-            break;
-        case Rtc_Wire_Error_NoAddressableDevice:
-            Serial.println("no device responded");
-            break;
-        case Rtc_Wire_Error_UnsupportedRequest:
-            Serial.println("device doesn't support request");
-            break;
-        case Rtc_Wire_Error_Unspecific:
-            Serial.println("unspecified error");
-            break;
-        case Rtc_Wire_Error_CommunicationTimeout:
-            Serial.println("communications timed out");
-            break;
-        }
-        return true;
-    }
-    return false;
+    // never assume the Rtc was last configured by you, so
+    // just clear them to your needed state
+    Rtc.Enable32kHzPin(false);
+    wasError("setup Enable32kHzPin");
+    Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
+    wasError("setup SetSquareWavePin");
 }
 
 void GetTime() {
