@@ -180,10 +180,10 @@ ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
   45deg  - 0.125 revolution  =  64
 */
 // Stepper pins
-const int motorPin1 = 8;  // Blue
-const int motorPin2 = 9;  // Pink
-const int motorPin3 = 10; // Yellow
-const int motorPin4 = 11; // Orange
+#define motorPin1 D9  // Blue
+#define motorPin2 D10  // Pink
+#define motorPin3 D11 // Yellow
+#define motorPin4 D12 // Orange
 
 int motorSpeed = 5;
 bool isWindowOpen = false;
