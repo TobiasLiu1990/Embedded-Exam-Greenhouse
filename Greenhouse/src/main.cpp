@@ -180,10 +180,10 @@ ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
   45deg  - 0.125 revolution  =  64
 */
 // Stepper pins
-#define motorPin1 D9  // Blue
-#define motorPin2 D10  // Pink
-#define motorPin3 D11 // Yellow
-#define motorPin4 D12 // Orange
+const int motorPin1 = 9;  // Blue
+const int motorPin2 = 10; // Pink
+const int motorPin3 = 11; // Yellow
+const int motorPin4 = 12; // Orange
 
 int motorSpeed = 5;
 bool isWindowOpen = false;
@@ -248,15 +248,33 @@ void UpdateBlynkWidgetLabel(char vp, String message);
 
 String printDateTime(const RtcDateTime &date);
 void RtcErrorCheckingAndUpdatingDate(); // Might need to fix a bit later. Currently copied from Rtc by Makuna example.
+
+void OpenWindow();
+void CloseWindow();
+void TurnMotorClockwise();
+void TurnMotorCounterClockwise();
+void SetMotorIdle();
 //
 // Forward declarations
 
 // Blynk
 //
-// This function is called every time the Virtual Pin 0 state changes
+
+// Checks Widget for state change on fruits.
 BLYNK_WRITE(V0) {
     stateNumber = param.asInt();
     isStateChanged = true;
+}
+
+// Checks state for window if open/closed.
+BLYNK_WRITE(V4) {
+    int windowState = param.asInt();
+
+    if (windowState == 0) {
+        isWindowOpen = false;
+    } else if (windowState == 1) {
+        isWindowOpen = true;
+    }
 }
 
 BLYNK_CONNECTED() {
@@ -264,6 +282,8 @@ BLYNK_CONNECTED() {
     // Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
     // Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
     // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
+
+    //Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
 }
 //
 // Blynk
@@ -364,12 +384,14 @@ void loop() {
     if (isWindowOpen == false) {
         if (temperature > (idealHighTemp - tempDiff)) { // This check is so that the windows should open before the current temp at bench level gets to high.
             isWindowOpen = true;
-            openWindow();
+            OpenWindow();
+            SetMotorIdle();
         }
     } else {
-        if (temperature < idealLowTemp + 2) {
+        if (temperature < idealLowTemp + 3) {
             isWindowOpen = false;
-            closeWindow();
+            CloseWindow();
+            SetMotorIdle();
         }
     }
 }
@@ -383,14 +405,14 @@ void initBlynk() {
 
 void UpdateFruitStateConditions() {
     if (currentState == Banana) {
-        // Ideal range 18.5 - 27.7 is the average from 3 refs
+        // Ideal range 20.25 - 27.7 is the average from 2-3 refs
         UpdateBlynkWidgetLabel(V0, "Current target: Bananas");
         UpdateBlynkWidgetColor(V0, "#E6D22A"); // Yellow
 
         Serial.println("Changing to Banana variables");
         minTemp = 15;
         maxTemp = 30;
-        idealLowTemp = 18.5;
+        idealLowTemp = 20.25;
         idealHighTemp = 27.7;
         idealLowHumidity = 50;
         idealHighHumidity = 100;
@@ -457,135 +479,11 @@ void CheckHumidityData() {
     UpdateBlynkWidgetContent(V8, BlynkStatusWidgetMessage);
 }
 
-void openWindow() {
-    for (int i = 0; i < 64; i++) {
-    clockwise();
-  }
-}
-
-void closeWindow() {
-    for (int j = 0; j < 64; j++) {
-    counterClockwise();
-  }
-}
-
-void clockwise(){
- // 1
- digitalWrite(motorPin4, HIGH);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin1, LOW);
- delay(motorSpeed);
- // 2
- digitalWrite(motorPin4, HIGH);
- digitalWrite(motorPin3, HIGH);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin1, LOW);
- delay (motorSpeed);
- // 3
- digitalWrite(motorPin4, LOW);
- digitalWrite(motorPin3, HIGH);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin1, LOW);
- delay(motorSpeed);
- // 4
- digitalWrite(motorPin4, LOW);
- digitalWrite(motorPin3, HIGH);
- digitalWrite(motorPin2, HIGH);
- digitalWrite(motorPin1, LOW);
- delay(motorSpeed);
- // 5
- digitalWrite(motorPin4, LOW);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin2, HIGH);
- digitalWrite(motorPin1, LOW);
- delay(motorSpeed);
- // 6
- digitalWrite(motorPin4, LOW);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin2, HIGH);
- digitalWrite(motorPin1, HIGH);
- delay (motorSpeed);
- // 7
- digitalWrite(motorPin4, LOW);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin1, HIGH);
- delay(motorSpeed);
- // 8
- digitalWrite(motorPin4, HIGH);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin1, HIGH);
- delay(motorSpeed);
-}
-
-
-void counterClockwise() {
-   // 1
- digitalWrite(motorPin1, HIGH);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin4, LOW);
- delay(motorSpeed);
- // 2
- digitalWrite(motorPin1, HIGH);
- digitalWrite(motorPin2, HIGH);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin4, LOW);
- delay (motorSpeed);
- // 3
- digitalWrite(motorPin1, LOW);
- digitalWrite(motorPin2, HIGH);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin4, LOW);
- delay(motorSpeed);
- // 4
- digitalWrite(motorPin1, LOW);
- digitalWrite(motorPin2, HIGH);
- digitalWrite(motorPin3, HIGH);
- digitalWrite(motorPin4, LOW);
- delay(motorSpeed);
- // 5
- digitalWrite(motorPin1, LOW);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin3, HIGH);
- digitalWrite(motorPin4, LOW);
- delay(motorSpeed);
- // 6
- digitalWrite(motorPin1, LOW);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin3, HIGH);
- digitalWrite(motorPin4, HIGH);
- delay (motorSpeed);
- // 7
- digitalWrite(motorPin1, LOW);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin4, HIGH);
- delay(motorSpeed);
- // 8
- digitalWrite(motorPin1, HIGH);
- digitalWrite(motorPin2, LOW);
- digitalWrite(motorPin3, LOW);
- digitalWrite(motorPin4, HIGH);
- delay(motorSpeed);
-}
-
-
-
-void UpdateFanSettings() {
-    // Show fan rpm in Blynk.
-    // Try to get fan to run automatically depending on temperatures
-    // Greenhouse - important with ventilation so cold/hot air does not get trapped
-
-    // Also an override in Blynk to manually change temperature. Maybe need a bool for true/false for auto/manual.
-}
-
 void ReadTemperature() {
     // dht.temperature().getEvent(&sensorEvent);
     // temperature = sensorEvent.temperature;
-    temperature = sht31.readTemperature() - temperatureDifference;
+    // temperature = sht31.readTemperature() - temperatureDifference;
+    temperature = sht31.readTemperature();
 
     if (!isnan(temperature)) {
         Blynk.virtualWrite(V1, temperature);
@@ -631,6 +529,130 @@ void GetLightSensorInfo() {
             Blynk.virtualWrite(V3, lightInformation);
         }
     }
+}
+
+void OpenWindow() {
+    for (int i = 0; i < 64; i++) {
+        TurnMotorClockwise();
+    }
+    Blynk.virtualWrite(V4, 1);
+}
+
+void CloseWindow() {
+    for (int j = 0; j < 64; j++) {
+        TurnMotorCounterClockwise();
+    }
+    Blynk.virtualWrite(V4, 0);
+
+}
+
+void SetMotorIdle() {
+    digitalWrite(motorPin4, LOW);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin1, LOW);
+}
+
+void TurnMotorClockwise() {
+    // 1
+    digitalWrite(motorPin4, HIGH);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin1, LOW);
+    delay(motorSpeed);
+    // 2
+    digitalWrite(motorPin4, HIGH);
+    digitalWrite(motorPin3, HIGH);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin1, LOW);
+    delay(motorSpeed);
+    // 3
+    digitalWrite(motorPin4, LOW);
+    digitalWrite(motorPin3, HIGH);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin1, LOW);
+    delay(motorSpeed);
+    // 4
+    digitalWrite(motorPin4, LOW);
+    digitalWrite(motorPin3, HIGH);
+    digitalWrite(motorPin2, HIGH);
+    digitalWrite(motorPin1, LOW);
+    delay(motorSpeed);
+    // 5
+    digitalWrite(motorPin4, LOW);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin2, HIGH);
+    digitalWrite(motorPin1, LOW);
+    delay(motorSpeed);
+    // 6
+    digitalWrite(motorPin4, LOW);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin2, HIGH);
+    digitalWrite(motorPin1, HIGH);
+    delay(motorSpeed);
+    // 7
+    digitalWrite(motorPin4, LOW);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin1, HIGH);
+    delay(motorSpeed);
+    // 8
+    digitalWrite(motorPin4, HIGH);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin1, HIGH);
+    delay(motorSpeed);
+}
+
+void TurnMotorCounterClockwise() {
+    // 1
+    digitalWrite(motorPin1, HIGH);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin4, LOW);
+    delay(motorSpeed);
+    // 2
+    digitalWrite(motorPin1, HIGH);
+    digitalWrite(motorPin2, HIGH);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin4, LOW);
+    delay(motorSpeed);
+    // 3
+    digitalWrite(motorPin1, LOW);
+    digitalWrite(motorPin2, HIGH);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin4, LOW);
+    delay(motorSpeed);
+    // 4
+    digitalWrite(motorPin1, LOW);
+    digitalWrite(motorPin2, HIGH);
+    digitalWrite(motorPin3, HIGH);
+    digitalWrite(motorPin4, LOW);
+    delay(motorSpeed);
+    // 5
+    digitalWrite(motorPin1, LOW);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin3, HIGH);
+    digitalWrite(motorPin4, LOW);
+    delay(motorSpeed);
+    // 6
+    digitalWrite(motorPin1, LOW);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin3, HIGH);
+    digitalWrite(motorPin4, HIGH);
+    delay(motorSpeed);
+    // 7
+    digitalWrite(motorPin1, LOW);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin4, HIGH);
+    delay(motorSpeed);
+    // 8
+    digitalWrite(motorPin1, HIGH);
+    digitalWrite(motorPin2, LOW);
+    digitalWrite(motorPin3, LOW);
+    digitalWrite(motorPin4, HIGH);
+    delay(motorSpeed);
 }
 
 void ResetBlynkWidget() {
