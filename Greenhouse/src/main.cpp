@@ -192,7 +192,7 @@ const float tempDiff = 1.9 - 0.7;
 //--------Wifi
 bool isConnected = false;
 unsigned long previousMillis = 0;
-const long waitInterval = 10000;
+const long waitInterval = 120000;       //2min per weather update
 
 // Using this for FSM
 enum Fruits {
@@ -204,6 +204,7 @@ Fruits currentState; // Will be set to Bananas by default in Setup()
 int stateNumber;     // 0 will default to Bananas
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
+bool isFirstConnection = true;
 
 String todaysDateAndWeather = "";
 
@@ -283,7 +284,10 @@ BLYNK_CONNECTED() {
     // Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
     // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
 
-    //Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
+    if (isFirstConnection) {
+        Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
+        isFirstConnection = false;
+    }
 }
 //
 // Blynk
@@ -692,23 +696,6 @@ void ShowTodaysDateAndWeather() {
     Blynk.virtualWrite(V7, now + ". " + weather);
 }
 
-#define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
-String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_Simple (Rtc by Makuna)
-    char dateString[20];
-
-    snprintf_P(dateString,                            // buffer
-               countof(dateString),                   // max number of bytes (char), written to buffer
-               PSTR("%02u/%02u/%04u %02u:%02u:%02u"), // PSTR reads from flash mem. n (...) is for formating
-               date.Month(),                          // rest of params to format
-               date.Day(),
-               date.Year(),
-               date.Hour(),
-               date.Minute(),
-               date.Second());
-
-    return dateString;
-}
-
 JsonObject weather_0;
 JsonObject mainInfo;
 
@@ -745,6 +732,23 @@ void GetWeatherInfo() {
     float mainInfo_temp = mainInfo["temp"];
 
     weather = String(weatherDescription) + ". " + mainInfo_temp + "C";
+}
+
+#define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
+String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_Simple (Rtc by Makuna)
+    char dateString[20];
+
+    snprintf_P(dateString,                            // buffer
+               countof(dateString),                   // max number of bytes (char), written to buffer
+               PSTR("%02u/%02u/%04u %02u:%02u:%02u"), // PSTR reads from flash mem. n (...) is for formating
+               date.Month(),                          // rest of params to format
+               date.Day(),
+               date.Year(),
+               date.Hour(),
+               date.Minute(),
+               date.Second());
+
+    return dateString;
 }
 
 String ErrorCheckingSensors() {
