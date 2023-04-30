@@ -23,19 +23,17 @@
 
 */
 
+
+/*
+  https://www.canr.msu.edu/news/temperature_variation_within_a_greenhouse
+
+  Air temp floor  -   bench   -   ceiling levels    (NO FANS ON)
+           0.7C  than bench (1m)
+           1.9C              than ceiling (2.89m)
+
+*/
+
 /** Placeholder - information on greenhouse
- *      * https://www.growspan.com/news/understanding-greenhouse-lighting/#:~:text=Greenhouses%20generally%20require%20six%20hours,promote%20crop%20growth%20and%20yield
- *          - 6h of direkt or full spectrum light each day in a greenhouse is good.
- *
- *      * https://www.mrhouseplant.com/blog/what-is-bright-indirect-light-for-plants/#:~:text=Most%20house%20plants%20need%20bright,will%20be%20happier%20and%20healthier
- *          - Bright indirect light or indirect light is > 3000 lux
- *          - Good for indoor plants.
- *          - Stronger indirect light over 10000 lux - 15000 lux will increase photosynthesis, speed up growth. Better.
- *
- *      * https://www.dpi.nsw.gov.au/agriculture/horticulture/greenhouse/structures-and-technology/ventilation#:~:text=Fans%20are%20the%20key%20method,movement%20when%20venting%20is%20minimal.
- *          - ventilation
- *
- *
  *
  *      * https://www.mrhouseplant.com/blog/caring-for-a-pineapple-plant-101-ananas-comosus-tips-tricks/    (NOT GREENHOUSE)
  *          - Pineapple  min 10000 lux - max 40000 lux *
@@ -70,11 +68,6 @@
  */
 
 /*
-    General role for a greenhouse seems to be that 6h of direkt light per day is good.
-    Bright indirect aka. indirect light is over 3000lux.
-
-    Pineapples and bananas has different ideal conditions. Se info above.
-
 
 
     Integrated sensor for temperature seems to get too hot.
@@ -165,14 +158,7 @@ ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 // #define enablePin1 D9
 // #define pin1A D6
 
-/*
-  https://www.canr.msu.edu/news/temperature_variation_within_a_greenhouse
 
-  Air temp floor  -   bench   -   ceiling levels    (NO FANS ON)
-           0.7C  than bench (1m)
-           1.9C              than ceiling (2.89m)
-
-*/
 /*Half-step setup
   360deg - 1 revolution      =  512 sequences
   180deg - 0.5 revolution    =  256 (compensated for rotational slop) -> 257
@@ -721,7 +707,8 @@ void ConnectToOpenWeatherMap() {
             mainInfo = doc["main"];
             GetWeatherInfo();
         } else {
-            Serial.println("Error on HTTP request");
+            Serial.print("Error on HTTP request: ");
+            Serial.println(httpCode);
         }
         http.end();
     }
