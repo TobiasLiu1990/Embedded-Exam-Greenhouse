@@ -32,6 +32,8 @@
  *          - Good for indoor plants.
  *          - Stronger indirect light over 10000 lux - 15000 lux will increase photosynthesis, speed up growth. Better.
  *
+ *      * https://www.dpi.nsw.gov.au/agriculture/horticulture/greenhouse/structures-and-technology/ventilation#:~:text=Fans%20are%20the%20key%20method,movement%20when%20venting%20is%20minimal.
+ *          - ventilation
  *
  *
  *
@@ -50,10 +52,6 @@
  *      * https://www.plantlexicon.com/pineapple/#Temperature   (optimal growth seems to require a lot of different temps in each phase of the growth...)
  *          - min temp 10C
  *          - ideal from 23C - 30C
- *
- *
- *
- *
  *
  *
  *
@@ -109,6 +107,7 @@
         ESP32-S3
         DHT11 (Only used to compensate for ESP32 integrated sensors)
         RTC ZS-042 (DS3231)
+        Stepper motor 28BYJ-48 5V DC + ULN2003AN
 
 */
 #include <Adafruit_DotStar.h>
@@ -148,8 +147,6 @@ char pass[] = "NikitaBoy";       // wifi pw
 
 StaticJsonDocument<1024> doc;
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
-#define DHTPIN A1
-#define DHTTYPE DHT11
 
 Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
@@ -163,6 +160,36 @@ ltr329_gain_t bananaGain = LTR3XX_GAIN_4; // GAIN_4 = 0.25 lux - 16k lux
 ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
 ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 
+//---------------------L293D
+// Might add fan for later use if possible
+// #define enablePin1 D9
+// #define pin1A D6
+
+/*
+  https://www.canr.msu.edu/news/temperature_variation_within_a_greenhouse
+
+  Air temp floor  -   bench   -   ceiling levels    (NO FANS ON)
+           0.7C  than bench (1m)
+           1.9C              than ceiling (2.89m)
+
+*/
+/*Half-step setup
+  360deg - 1 revolution      =  512 sequences
+  180deg - 0.5 revolution    =  256 (compensated for rotational slop) -> 257
+  90deg  - 0.25 revolution   =  128 (test if compensation needed)
+  45deg  - 0.125 revolution  =  64
+*/
+// Stepper pins
+const int motorPin1 = 8;  // Blue
+const int motorPin2 = 9;  // Pink
+const int motorPin3 = 10; // Yellow
+const int motorPin4 = 11; // Orange
+
+int motorSpeed = 5;
+bool isWindowOpen = false;
+const float tempDiff = 1.9 - 0.7;
+
+//--------Wifi
 bool isConnected = false;
 unsigned long previousMillis = 0;
 const long waitInterval = 10000;
@@ -214,7 +241,6 @@ void FruitStateTransition();
 void UpdateFruitStateConditions();
 
 void initBlynk();
-void ResetBlynkWidget();
 void ResetBlynkWidget();
 void UpdateBlynkWidgetColor(char vp, String color);
 void UpdateBlynkWidgetContent(char vp, String message);
@@ -284,7 +310,10 @@ void setup() {
     Wire.begin(3, 4); // i2c SDC, SCL
     Rtc.Begin();
 
-    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(motorPin1, OUTPUT);
+    pinMode(motorPin2, OUTPUT);
+    pinMode(motorPin3, OUTPUT);
+    pinMode(motorPin4, OUTPUT);
     currentState = Banana;
 
     // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
@@ -330,6 +359,18 @@ void loop() {
         FruitStateTransition();
         UpdateFruitStateConditions();
         isStateChanged = false;
+    }
+
+    if (isWindowOpen == false) {
+        if (temperature > (idealHighTemp - tempDiff)) { // This check is so that the windows should open before the current temp at bench level gets to high.
+            isWindowOpen = true;
+            openWindow();
+        }
+    } else {
+        if (temperature < idealLowTemp + 2) {
+            isWindowOpen = false;
+            closeWindow();
+        }
     }
 }
 
@@ -415,6 +456,123 @@ void CheckHumidityData() {
     UpdateBlynkWidgetColor(V8, BlynkStatusWidgetColor);
     UpdateBlynkWidgetContent(V8, BlynkStatusWidgetMessage);
 }
+
+void openWindow() {
+    for (int i = 0; i < 64; i++) {
+    clockwise();
+  }
+}
+
+void closeWindow() {
+    for (int j = 0; j < 64; j++) {
+    counterClockwise();
+  }
+}
+
+void clockwise(){
+ // 1
+ digitalWrite(motorPin4, HIGH);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin1, LOW);
+ delay(motorSpeed);
+ // 2
+ digitalWrite(motorPin4, HIGH);
+ digitalWrite(motorPin3, HIGH);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin1, LOW);
+ delay (motorSpeed);
+ // 3
+ digitalWrite(motorPin4, LOW);
+ digitalWrite(motorPin3, HIGH);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin1, LOW);
+ delay(motorSpeed);
+ // 4
+ digitalWrite(motorPin4, LOW);
+ digitalWrite(motorPin3, HIGH);
+ digitalWrite(motorPin2, HIGH);
+ digitalWrite(motorPin1, LOW);
+ delay(motorSpeed);
+ // 5
+ digitalWrite(motorPin4, LOW);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin2, HIGH);
+ digitalWrite(motorPin1, LOW);
+ delay(motorSpeed);
+ // 6
+ digitalWrite(motorPin4, LOW);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin2, HIGH);
+ digitalWrite(motorPin1, HIGH);
+ delay (motorSpeed);
+ // 7
+ digitalWrite(motorPin4, LOW);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin1, HIGH);
+ delay(motorSpeed);
+ // 8
+ digitalWrite(motorPin4, HIGH);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin1, HIGH);
+ delay(motorSpeed);
+}
+
+
+void counterClockwise() {
+   // 1
+ digitalWrite(motorPin1, HIGH);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin4, LOW);
+ delay(motorSpeed);
+ // 2
+ digitalWrite(motorPin1, HIGH);
+ digitalWrite(motorPin2, HIGH);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin4, LOW);
+ delay (motorSpeed);
+ // 3
+ digitalWrite(motorPin1, LOW);
+ digitalWrite(motorPin2, HIGH);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin4, LOW);
+ delay(motorSpeed);
+ // 4
+ digitalWrite(motorPin1, LOW);
+ digitalWrite(motorPin2, HIGH);
+ digitalWrite(motorPin3, HIGH);
+ digitalWrite(motorPin4, LOW);
+ delay(motorSpeed);
+ // 5
+ digitalWrite(motorPin1, LOW);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin3, HIGH);
+ digitalWrite(motorPin4, LOW);
+ delay(motorSpeed);
+ // 6
+ digitalWrite(motorPin1, LOW);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin3, HIGH);
+ digitalWrite(motorPin4, HIGH);
+ delay (motorSpeed);
+ // 7
+ digitalWrite(motorPin1, LOW);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin4, HIGH);
+ delay(motorSpeed);
+ // 8
+ digitalWrite(motorPin1, HIGH);
+ digitalWrite(motorPin2, LOW);
+ digitalWrite(motorPin3, LOW);
+ digitalWrite(motorPin4, HIGH);
+ delay(motorSpeed);
+}
+
+
 
 void UpdateFanSettings() {
     // Show fan rpm in Blynk.
