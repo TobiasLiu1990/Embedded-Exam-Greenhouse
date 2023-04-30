@@ -1,5 +1,5 @@
 /*
-  Uses Openweathermap.org for weather information. Updates every 1h (free version).
+  Uses Openweathermap.org for weather information. 60 calls per h (free version).
   https://stackoverflow.com/questions/46111834/format-curly-braces-on-same-line-in-c-vscode - For changing auto format behaviour
 
     Other components:
@@ -14,95 +14,12 @@
       Current weather
       curent temp
 
-    Maybe also use Air Pollution API
-
 
     Ref:
-    https://learn.adafruit.com/adafruit-sht31-d-temperature-and-humidity-sensor-breakout/wiring-and-test
-    https://adafruit.github.io/Adafruit_LTR329_LTR303/html/class_adafruit___l_t_r329.html
+    Light sensor library: https://adafruit.github.io/Adafruit_LTR329_LTR303/html/class_adafruit___l_t_r329.html
 
 */
 
-
-/*
-  https://www.canr.msu.edu/news/temperature_variation_within_a_greenhouse
-
-  Air temp floor  -   bench   -   ceiling levels    (NO FANS ON)
-           0.7C  than bench (1m)
-           1.9C              than ceiling (2.89m)
-
-*/
-
-/** Placeholder - information on greenhouse
- *
- *      * https://www.mrhouseplant.com/blog/caring-for-a-pineapple-plant-101-ananas-comosus-tips-tricks/    (NOT GREENHOUSE)
- *          - Pineapple  min 10000 lux - max 40000 lux *
- *          - in bright indirect light (3000 lux), they can grow but very slow. High chance to not produce fruit.
- *
- *      * https://www.thespruce.com/how-to-grow-a-pineapple-7091045
- *          - Humidity 40% - 60%
- *
- *      * https://wintergardenz.co.nz/growing-advice-and-tips/growing-pineapples-in-a-greenhouse/
- *          - Sensitive to temp, for every 1C above or below ideal can damage growth by 6%.
- *          - optimal temp 20 - 32 (night to day)
- *          - Max = 35C and above can lead to sunburn damage
- *
- *      * https://www.plantlexicon.com/pineapple/#Temperature   (optimal growth seems to require a lot of different temps in each phase of the growth...)
- *          - min temp 10C
- *          - ideal from 23C - 30C
- *
- *
- *
- *      * https://solarinnovations.com/news/blog/banana-tree-growing-tips/#:~:text=Banana%20trees%20are%20a%20must,they%20take%20up%20less%20space
- *          - 12h sun per day
- *          - 19.4 C at night
- *          - 29.4 C during day
- *          - >= humidity 50%      http://www.agritech.tnau.ac.in/expert_system/banana/cli.html#:~:text=A%20humidity%20of%20at%20least,will%20damage%20the%20banana%20leaves.
- *
- *      * https://www.rhs.org.uk/plants/banana/growing-guide
- *          - min 15C
- *          - ideal 27C
- *
- *      * https://www.gardenguides.com/75976-grow-bananas-greenhouse.html
- *          - ideal: 21.1 - 26.6
- */
-
-/*
-
-
-    Integrated sensor for temperature seems to get too hot.
-    Uses DH11 now to check the temp.
-        - Been running for about 10mins
-        - Current room temperature with DH11: 24.40C
-        - Current humidity: 10.00 - 11.00%
-
-        * can do -40 to 80 (0.5C sensitivity)
-        * 0 - 100% humidity (2-5% accuracy)
-
-
-    Comparing to ESP32 integrated. After running for around 15min:
-        - Temp: 33.88C
-        - Humidity: 15.89%
-
-
-    After more testing, sometimes the DHT11 would return weird values. Temperatures would sometimes be negative or much lower than actual temperature.
-    For example -11C or around 10C lower than actual.
-    It also failed to read temperature/humidity here and there, even if rarely, it would be an issue.
-
-    Will use the above data to compensate and use the integrated sensors again.
-    This wont be 100% accurate as the chip gets hotter, more compensation might be needed though.
-*/
-
-/*
-    Components and stuff used:
-        Blynk
-
-        ESP32-S3
-        DHT11 (Only used to compensate for ESP32 integrated sensors)
-        RTC ZS-042 (DS3231)
-        Stepper motor 28BYJ-48 5V DC + ULN2003AN
-
-*/
 #include <Adafruit_DotStar.h>
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -135,8 +52,8 @@ const String metric = "&units=metric";
 #define BLYNK_PRINT Serial
 
 char auth[] = BLYNK_AUTH_TOKEN;  // Blynk token
-char ssidBlynk[] = "Venti_2.4G"; // wifi
-char pass[] = "NikitaBoy";       // wifi pw
+char ssidBlynk[] = "Venti_2.4G"; // Wifi
+char pass[] = "NikitaBoy";       // Wifi pw
 
 StaticJsonDocument<1024> doc;
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
@@ -158,7 +75,6 @@ ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 // #define enablePin1 D9
 // #define pin1A D6
 
-
 /*Half-step setup
   360deg - 1 revolution      =  512 sequences
   180deg - 0.5 revolution    =  256 (compensated for rotational slop) -> 257
@@ -178,7 +94,7 @@ const float tempDiff = 1.9 - 0.7;
 //--------Wifi
 bool isConnected = false;
 unsigned long previousMillis = 0;
-const long waitInterval = 120000;       //2min per weather update
+const long waitInterval = 120000; // 2min per weather update
 
 // Using this for FSM
 enum Fruits {
@@ -246,7 +162,6 @@ void SetMotorIdle();
 
 // Blynk
 //
-
 // Checks Widget for state change on fruits.
 BLYNK_WRITE(V0) {
     stateNumber = param.asInt();
@@ -352,7 +267,6 @@ void setup() {
     }
 
     // Blynk .setInterval can not take a function with arguments
-    // timer.setInterval(5000L, M); // Openweathermap.org API for weather info
     timer.setInterval(1000L, ShowTodaysDateAndWeather);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
@@ -395,7 +309,6 @@ void initBlynk() {
 
 void UpdateFruitStateConditions() {
     if (currentState == Banana) {
-        // Ideal range 20.25 - 27.7 is the average from 2-3 refs
         UpdateBlynkWidgetLabel(V0, "Current target: Bananas");
         UpdateBlynkWidgetColor(V0, "#E6D22A"); // Yellow
 
@@ -407,7 +320,6 @@ void UpdateFruitStateConditions() {
         idealLowHumidity = 50;
         idealHighHumidity = 100;
     } else if (currentState == Pineapple) {
-        // Ideal range 21.5 - 31 is the average from 2 refs
         UpdateBlynkWidgetLabel(V0, "Current target: Pineapples");
         UpdateBlynkWidgetColor(V0, "#87DE24"); // Green-ish
 
@@ -440,8 +352,7 @@ void CheckSensorData() {
 }
 
 void CheckTemperatureData() {
-    //--Temperature
-    if (temperature >= idealLowTemp && temperature <= idealHighTemp) { // Good
+    if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
         BlynkStatusWidgetMessage = "Temperature is within ideal range (" + String(idealLowTemp) + " - " + String(idealHighTemp) + ")";
         BlynkStatusWidgetColor = "#228B22"; // green
     } else if ((temperature > minTemp && temperature < idealLowTemp) || (temperature > idealHighTemp && temperature < maxTemp)) {
@@ -470,9 +381,6 @@ void CheckHumidityData() {
 }
 
 void ReadTemperature() {
-    // dht.temperature().getEvent(&sensorEvent);
-    // temperature = sensorEvent.temperature;
-    // temperature = sht31.readTemperature() - temperatureDifference;
     temperature = sht31.readTemperature();
 
     if (!isnan(temperature)) {
@@ -485,8 +393,6 @@ void ReadTemperature() {
 }
 
 void ReadHumidity() {
-    // dht.humidity().getEvent(&sensorEvent);
-    // humidity = sensorEvent.relative_humidity;
     humidity = sht31.readHumidity() - humidityDifference;
 
     if (!isnan(humidity)) {
@@ -533,7 +439,6 @@ void CloseWindow() {
         TurnMotorCounterClockwise();
     }
     Blynk.virtualWrite(V4, 0);
-
 }
 
 void SetMotorIdle() {
@@ -648,10 +553,11 @@ void TurnMotorCounterClockwise() {
 void ResetBlynkWidget() {
     String white = "#FFFFFF";
 
-    UpdateBlynkWidgetColor(V0, white);                          // Fruit State widget
-    UpdateBlynkWidgetColor(V0, white);                          // Greenhouse status color
-    UpdateBlynkWidgetContent(V9, "Should show status message"); // Greenhouse status message
-    UpdateBlynkWidgetContent(V8, "Should show status message"); // Greenhouse status message
+    UpdateBlynkWidgetColor(V0, white);                          // V0 - Fruit State widget
+    UpdateBlynkWidgetColor(V8, white);                          // V8 - Greenhouse Humidity color
+    UpdateBlynkWidgetContent(V8, "Should show status message"); // V8 - Greenhouse Humidity message
+    UpdateBlynkWidgetColor(V9, white);                          // V9 - Greenhouse Temperature color
+    UpdateBlynkWidgetContent(V9, "Should show status message"); // V9 - Greenhouse Temperature message
 }
 
 void UpdateBlynkWidgetLabel(char vp, String message) {
@@ -665,10 +571,17 @@ void UpdateBlynkWidgetContent(char vp, String message) {
 void UpdateBlynkWidgetColor(char vp, String color) {
     Blynk.setProperty(vp, "color", color);
 }
+
 /*
-
-
+    WANT
+    TO
+    FIX
+    WEATHER
+    METHODS
+    LATER
+    FIND BETTER WAY TO DO THIS
 */
+
 String weather = "";
 void ShowTodaysDateAndWeather() {
     String now = printDateTime(Rtc.GetDateTime());
@@ -684,7 +597,6 @@ void ShowTodaysDateAndWeather() {
 
 JsonObject weather_0;
 JsonObject mainInfo;
-
 void ConnectToOpenWeatherMap() {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
@@ -743,18 +655,17 @@ String ErrorCheckingSensors() {
 
     if (!sht31.begin(0x44)) { // default i2c address
         checkSensors = "SHT31 - Cannot find sensor";
-        // Send some error to Blynk
+        UpdateBlynkWidgetLabel(V1, "Temperature sensor error");
         while (1)
             yield();
     }
-
     if (!ltr329.begin()) {
         checkSensors += "LTR329 - Cannot find sensor";
-        // Send some error to Blynk
+        UpdateBlynkWidgetLabel(V2, "Humidity sensor error");
         while (1)
             yield();
     }
-
+    
     return checkSensors;
 }
 
