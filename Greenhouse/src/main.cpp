@@ -110,13 +110,13 @@ enum Fruits {
     Pineapple
 };
 
-Fruits currentState = Banana;                // Will be set to Bananas by default in Setup()
-int stateNumber = 0;                // 0 will default to Bananas
+Fruits currentState; // Will be set to Bananas by default
+int stateNumber;     // 0 will default to Bananas
 int oldStateNumber = stateNumber;
 
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
-bool isFirstConnection = true;
+bool isConnectedToBlynk = false;
 
 String todaysDateAndWeather = "";
 
@@ -157,7 +157,7 @@ void FruitStateTransition();
 void UpdateFruitStateConditions();
 
 void initBlynk();
-void ResetBlynkWidget();
+void ResetBlynkWidget(String color, String message);
 void UpdateBlynkWidgetColor(char vp, String color);
 void UpdateBlynkWidgetContent(char vp, String message);
 void UpdateBlynkWidgetLabel(char vp, String message);
@@ -202,10 +202,12 @@ BLYNK_CONNECTED() {
     // Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
     // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
 
-    //if (isFirstConnection) {
-        Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
-        isFirstConnection = false;
-    //}
+    Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
+    isConnectedToBlynk = true;
+}
+
+BLYNK_DISCONNECTED() {
+    isConnectedToBlynk = false;
 }
 //
 // Blynk
@@ -261,10 +263,9 @@ void setup() {
     // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     RtcErrorCheckingAndUpdatingDate();
     ErrorCheckingSensors();
-    delay(250);
 
     WiFi.begin(ssid, password);
-    delay(250);
+    delay(100);
 
     while (WiFi.status() != WL_CONNECTED) {
         delay(1500);
@@ -275,12 +276,12 @@ void setup() {
     isConnected = true;
 
     Blynk.begin(BLYNK_AUTH_TOKEN, ssidBlynk, pass);
-    delay(250);
+    delay(100);
 
     while (!Blynk.connected()) {
         Serial.println("Connecting hardware to Blynk...");
-        initBlynk(); // Init Blynk with Banana as default
     }
+    initBlynk(); // Init Blynk with Banana as default
     Serial.println("Now connected to Blynk Greenhouse!");
 
     // Blynk .setInterval can not take a function with arguments
@@ -290,38 +291,25 @@ void setup() {
     // timer.setInterval(5000L, ReadTemperature);
     // timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
-    timer.setInterval(10000L, CheckSensorData);
+    timer.setInterval(1000L, CheckSensorData);
 }
-
-bool temperatureUploadSuccessful = false;
-bool humidityUploadSuccessful = false;
 
 void loop() {
     Blynk.run();
     timer.run();
 
-    // Use millis to set timer to upload data to blynk
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
         if (ReadTemperature()) {
             UploadTemperatureToBlynk();
         }
-
         if (ReadHumidity()) {
             UploadHumidityToBlynk();
         }
-
-
-
-        /*
-            setInterval should read data. When data is read/all ok - then upload to blynk in here
-        */
-
         previousMillisSensor = currentMillis;
     }
 
     if (isStateChanged) {
-        Serial.println("Did i enter to change state variables????");
         FruitStateTransition();
         UpdateFruitStateConditions();
         isStateChanged = false;
@@ -349,7 +337,10 @@ void loop() {
 void initBlynk() {
     currentState = Banana; // Will be set to Bananas by default in Setup()
     stateNumber = 0;       // 0 will default to Bananas
-    ResetBlynkWidget();
+
+    String color = "#FFFFFF";
+    String message = "Loading status...";
+    ResetBlynkWidget(color, message);
     UpdateFruitStateConditions();
 }
 
@@ -392,10 +383,13 @@ void FruitStateTransition() {
     }
 }
 
+bool asd = false;
 void CheckSensorData() {
-    /*
-        Should have a check that sensor data is ready first.
-    */
+    if (asd == false) {
+        delay(2000);
+        asd = true;
+    }
+
     CheckTemperatureData();
     CheckHumidityData();
 }
@@ -418,8 +412,8 @@ void CheckTemperatureData() {
         BlynkStatusWidgetColor = "#C70039"; // red
     }
 
-    UpdateBlynkWidgetColor(V9, BlynkStatusWidgetColor);
     UpdateBlynkWidgetContent(V9, BlynkStatusWidgetMessage);
+    UpdateBlynkWidgetColor(V9, BlynkStatusWidgetColor);
 }
 
 void CheckHumidityData() {
@@ -613,14 +607,13 @@ void TurnMotorCounterClockwise() {
     delay(motorSpeed);
 }
 
-void ResetBlynkWidget() {
-    String white = "#FFFFFF";
+void ResetBlynkWidget(String color, String message) {
 
-    UpdateBlynkWidgetColor(V0, white);                          // V0 - Fruit State widget
-    UpdateBlynkWidgetColor(V8, white);                          // V8 - Greenhouse Humidity color
-    UpdateBlynkWidgetContent(V8, "Should show status message"); // V8 - Greenhouse Humidity message
-    UpdateBlynkWidgetColor(V9, white);                          // V9 - Greenhouse Temperature color
-    UpdateBlynkWidgetContent(V9, "Should show status message"); // V9 - Greenhouse Temperature message
+    UpdateBlynkWidgetColor(V0, color);     // V0 - Fruit State widget
+    UpdateBlynkWidgetColor(V8, color);     // V8 - Greenhouse Humidity color
+    UpdateBlynkWidgetContent(V8, message); // V8 - Greenhouse Humidity message
+    UpdateBlynkWidgetColor(V9, color);     // V9 - Greenhouse Temperature color
+    UpdateBlynkWidgetContent(V9, message); // V9 - Greenhouse Temperature message
 }
 
 void UpdateBlynkWidgetLabel(char vp, String message) {
