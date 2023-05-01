@@ -93,8 +93,13 @@ const float tempDiff = 1.9 - 0.7;
 
 //--------Wifi
 bool isConnected = false;
-unsigned long previousMillis = 0;
-const long waitInterval = 120000; // 2min per weather update
+
+//Timers
+unsigned long previousMillisWeather = 0;
+const long waitIntervalWeather = 120000; // 2min per weather update
+
+unsigned long previousMillisSensor = 0;
+const long waitIntervalSensor = 5000;
 
 // Using this for FSM
 enum Fruits {
@@ -267,14 +272,10 @@ void setup() {
     }
     Serial.println("Now connected to Blynk Greenhouse!");
 
-    // Start interval to read sensor stuff
-    while (!isSensorStarted) {
-    /*
-        If sensor is not reading yet, wait to post to blynk
-    */
-    }
 
     // Blynk .setInterval can not take a function with arguments
+
+    //These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, ShowTodaysDateAndWeather);
     timer.setInterval(5000L, ReadTemperature);
     timer.setInterval(5000L, ReadHumidity);
@@ -286,9 +287,13 @@ void loop() {
     Blynk.run();
     timer.run();
 
-    //Use millis to set timer to upload data to blynk
+    // Use millis to set timer to upload data to blynk
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillisSensor >= waitIntervalSensor) {       //Read sensor data every 5s
+        
 
-
+        previousMillisSensor = currentMillis;
+    }
 
     if (isStateChanged) {
         Serial.println("Did i enter to change state variables????");
@@ -314,7 +319,6 @@ void loop() {
             Blynk.virtualWrite(V4, 0);
         }
     }
-
 }
 
 void initBlynk() {
@@ -602,10 +606,11 @@ void ShowTodaysDateAndWeather() {
     String weather = "";
 
     unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= waitInterval) {
+    if (currentMillis - previousMillisWeather >= waitIntervalWeather) {
         ConnectToOpenWeatherMap();
         weather = GetWeatherInfo();
-        previousMillis = currentMillis;
+
+        previousMillisWeather = currentMillis;
     }
 
     Blynk.virtualWrite(V7, now + ". " + weather);
