@@ -283,22 +283,27 @@ void setup() {
 
     // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, ShowCurrentDateAndTime);
-    timer.setInterval(120000, ShowCurrentWeather);
+    timer.setInterval(120000L, ShowCurrentWeather);
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(1000L, CheckSensorData);
 }
-
+// temperatureRead
+bool temperatureReady = false;
+bool humidityReady = false;
 void loop() {
     Blynk.run();
     timer.run();
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
+
         if (ReadTemperature()) {
             UploadTemperatureToBlynk();
+            temperatureReady = true;
         }
         if (ReadHumidity()) {
             UploadHumidityToBlynk();
+            humidityReady = true;
         }
         previousMillisSensor = currentMillis;
     }
@@ -379,13 +384,12 @@ void FruitStateTransition() {
 
 bool onStartUpDelay = true;
 void CheckSensorData() {
-    if (onStartUpDelay) {
-        delay(5000);
-        onStartUpDelay = false;
+    if (temperatureReady) {
+        CheckTemperatureStatus();
     }
-
-    CheckTemperatureStatus();
-    CheckHumidityStatus();
+    if (humidityReady) {
+        CheckHumidityStatus();
+    }
 }
 
 enum Status {
@@ -667,10 +671,9 @@ void ShowCurrentDateAndTime() {
     Blynk.virtualWrite(V30, currentDateAndTime);
 }
 
-String weather = "";
 void ShowCurrentWeather() {
-    
-
+    ConnectToOpenWeatherMap();
+    Blynk.virtualWrite(V31, GetWeatherInfo());
 
     /*
     unsigned long currentMillis = millis();
@@ -716,9 +719,8 @@ void ConnectToOpenWeatherMap() {
 String GetWeatherInfo() {
     const char *weatherDescription = weather_0["description"];
     float mainInfo_temp = mainInfo["temp"];
-    String weather = weather = String(weatherDescription) + ". " + mainInfo_temp + "C";
 
-    return weather;
+    return String(weatherDescription) + ". " + mainInfo_temp + "C";
 }
 
 #define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
