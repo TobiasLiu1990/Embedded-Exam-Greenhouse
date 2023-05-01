@@ -303,6 +303,8 @@ void loop() {
             UploadHumidityToBlynk();
         }
 
+
+
         /*
             setInterval should read data. When data is read/all ok - then upload to blynk in here
         */
@@ -389,6 +391,12 @@ void CheckSensorData() {
     CheckTemperatureData();
     CheckHumidityData();
 }
+
+enum Status {
+    Normal,
+    Warning,
+    Critical
+};
 
 void CheckTemperatureData() {
     if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
