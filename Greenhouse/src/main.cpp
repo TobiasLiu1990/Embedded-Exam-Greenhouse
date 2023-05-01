@@ -287,7 +287,7 @@ void setup() {
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(1000L, CheckSensorData);
 }
-//
+// temperatureRead
 bool temperatureReady = false;
 bool humidityReady = false;
 void loop() {
@@ -296,6 +296,7 @@ void loop() {
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
+        
         if (ReadTemperature()) {
             UploadTemperatureToBlynk();
             temperatureReady = true;
