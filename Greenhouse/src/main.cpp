@@ -288,8 +288,6 @@ void setup() {
 
     // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, ShowTodaysDateAndWeather);
-    // timer.setInterval(5000L, ReadTemperature);
-    // timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(1000L, CheckSensorData);
 }
