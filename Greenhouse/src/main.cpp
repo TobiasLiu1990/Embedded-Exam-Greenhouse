@@ -10,11 +10,6 @@
       Openweathermap updates
       If something goes wrong
 
-    Other info i want to show from OpenWeathermap.org
-      Current weather
-      curent temp
-
-
     Ref:
     Light sensor library: https://adafruit.github.io/Adafruit_LTR329_LTR303/html/class_adafruit___l_t_r329.html
 
@@ -136,6 +131,7 @@ float idealHighHumidity;
 void TimerMillis();
 
 void ConnectToOpenWeatherMap();
+void ShowCurrentDateAndTime();
 void ShowTodaysDateAndWeather();
 String GetWeatherInfo();
 
@@ -286,7 +282,8 @@ void setup() {
     // Blynk .setInterval can not take a function with arguments
 
     // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
-    timer.setInterval(1000L, ShowTodaysDateAndWeather);
+    timer.setInterval(1000L, ShowCurrentDateAndTime);
+    timer.setInterval(120000, ShowTodaysDateAndWeather);
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(1000L, CheckSensorData);
 }
@@ -665,19 +662,23 @@ void UpdateBlynkWidgetColor(char vp, String color) {
     FIND BETTER WAY TO DO THIS
 */
 
+void ShowCurrentDateAndTime() {
+    
+}
+
+String weather = "";
 void ShowTodaysDateAndWeather() {
     String now = printDateTime(Rtc.GetDateTime());
-    String weather = "";
 
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillisWeather >= waitIntervalWeather) {
+    //unsigned long currentMillis = millis();
+    //if (currentMillis - previousMillisWeather >= waitIntervalWeather) {
         ConnectToOpenWeatherMap();
         weather = GetWeatherInfo();
 
-        previousMillisWeather = currentMillis;
-    }
+        //previousMillisWeather = currentMillis;
+    //}
 
-    Blynk.virtualWrite(V7, now + ". " + weather);
+    Blynk.virtualWrite(V30, now + ". " + weather);
 }
 
 JsonObject weather_0;
@@ -713,8 +714,9 @@ void ConnectToOpenWeatherMap() {
 String GetWeatherInfo() {
     const char *weatherDescription = weather_0["description"];
     float mainInfo_temp = mainInfo["temp"];
+    String weather = weather = String(weatherDescription) + ". " + mainInfo_temp + "C";
 
-    return String(weatherDescription) + ". " + mainInfo_temp + "C";
+    return weather;
 }
 
 #define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
