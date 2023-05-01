@@ -23,6 +23,8 @@
 #include <Wire.h>
 #include <i2cdetect.h>
 
+#include "SensorInfo.h"
+
 // Sensors
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
 #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
@@ -287,12 +289,16 @@ void setup() {
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(1000L, CheckSensorData);
 }
-// temperatureRead
+
+
+SensorInfo sensorInfo;
+
 bool temperatureReady = false;
 bool humidityReady = false;
 void loop() {
     Blynk.run();
     timer.run();
+
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
