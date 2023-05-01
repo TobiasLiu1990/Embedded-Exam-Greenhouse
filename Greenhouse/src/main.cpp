@@ -149,8 +149,8 @@ void UploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
 void SetLightSensor();
 void GetLightSensorInfo();
 void CheckSensorData();
-void CheckTemperatureData();
-void CheckHumidityData();
+void CheckTemperatureStatus();
+void CheckHumidityStatus();
 
 void FruitStateTransition();
 void UpdateFruitStateConditions();
@@ -383,12 +383,16 @@ void FruitStateTransition() {
 bool asd = false;
 void CheckSensorData() {
     if (asd == false) {
-        delay(2000);
+        delay(3000);
         asd = true;
     }
+
+    /*
+        Create a timer to check if readTemp and readHumid returns true. If so, jump out and start checking data status
+    */
     
-    CheckTemperatureData();
-    CheckHumidityData();
+    CheckTemperatureStatus();
+    CheckHumidityStatus();
 }
 
 enum Status {
@@ -402,7 +406,7 @@ String colorGreen = "#228B22";
 String colorOrange = "#FFC300";
 String colorRed = "#C70039";
 
-void CheckTemperatureData() {
+void CheckTemperatureStatus() {
     String widgetColor = "";
 
     if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
@@ -419,7 +423,7 @@ void CheckTemperatureData() {
     UploadStatusMessageToBlynk(V9, "Temperature", widgetColor, idealLowTemp, idealHighTemp);
 }
 
-void CheckHumidityData() {
+void CheckHumidityStatus() {
     String widgetColor = "";
 
     if (humidity >= idealLowHumidity && humidity <= idealHighHumidity) {
