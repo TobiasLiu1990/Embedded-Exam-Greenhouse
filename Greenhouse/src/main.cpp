@@ -110,8 +110,8 @@ bool isFirstConnection = true;
 
 String todaysDateAndWeather = "";
 
-const float temperatureDifference = 33.88 - 24.40;
-const float humidityDifference = 15.89 - 11;
+const float temperatureDifference = 33.88 - 24.40; // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
+const float humidityDifference = 15.89 - 11;       // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
 float temperature = 0;
 float humidity = 0;
 float minTemp;
@@ -234,21 +234,21 @@ void setup() {
     Serial.begin(115200);
     Wire.begin(3, 4); // i2c SDC, SCL
     Rtc.Begin();
+    bool isSensorStarted = false;
+    currentState = Banana;
 
     pinMode(motorPin1, OUTPUT);
     pinMode(motorPin2, OUTPUT);
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
-    currentState = Banana;
 
     // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     RtcErrorCheckingAndUpdatingDate();
-
     ErrorCheckingSensors();
-    delay(1000);
+    delay(250);
 
     WiFi.begin(ssid, password);
-    delay(1000);
+    delay(250);
 
     while (WiFi.status() != WL_CONNECTED) {
         delay(1500);
@@ -258,13 +258,21 @@ void setup() {
     Serial.println("Connected to the Wifi network");
     isConnected = true;
 
-    if (isConnected) {
-        Blynk.begin(BLYNK_AUTH_TOKEN, ssidBlynk, pass);
-        Serial.println("Now connected to Blynk Greenhouse!");
-        delay(100);
+    Blynk.begin(BLYNK_AUTH_TOKEN, ssidBlynk, pass);
+    delay(250);
+
+    while (!Blynk.connected()) {
+        Serial.println("Connecting hardware to Blynk...");
         initBlynk(); // Init Blynk with Banana as default
-        delay(1000);
     }
+    Serial.println("Now connected to Blynk Greenhouse!");
+
+    // Start interval to read sensor stuff
+    // while (!isSensorStarted) {
+    /*
+        If sensor is not reading yet, wait to post to blynk
+    */
+    // }
 
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, ShowTodaysDateAndWeather);
@@ -290,12 +298,16 @@ void loop() {
             isWindowOpen = true;
             OpenWindow();
             SetMotorIdle();
+            UpdateBlynkWidgetColor(V4, "#87DE24");
+            Blynk.virtualWrite(V4, 1);
         }
     } else {
         if (temperature < idealLowTemp + 3) {
             isWindowOpen = false;
             CloseWindow();
             SetMotorIdle();
+            UpdateBlynkWidgetColor(V4, "#C70039");
+            Blynk.virtualWrite(V4, 0);
         }
     }
 }
@@ -381,7 +393,7 @@ void CheckHumidityData() {
 }
 
 void ReadTemperature() {
-    temperature = sht31.readTemperature();
+    temperature = sht31.readTemperature() - temperatureDifference;
 
     if (!isnan(temperature)) {
         Blynk.virtualWrite(V1, temperature);
@@ -431,14 +443,12 @@ void OpenWindow() {
     for (int i = 0; i < 64; i++) {
         TurnMotorClockwise();
     }
-    Blynk.virtualWrite(V4, 1);
 }
 
 void CloseWindow() {
     for (int j = 0; j < 64; j++) {
         TurnMotorCounterClockwise();
     }
-    Blynk.virtualWrite(V4, 0);
 }
 
 void SetMotorIdle() {
@@ -665,7 +675,7 @@ String ErrorCheckingSensors() {
         while (1)
             yield();
     }
-    
+
     return checkSensors;
 }
 
