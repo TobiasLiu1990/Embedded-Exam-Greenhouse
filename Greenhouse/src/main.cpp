@@ -144,6 +144,7 @@ bool ReadTemperature();
 void UploadTemperatureToBlynk();
 bool ReadHumidity();
 void UploadHumidityToBlynk();
+void UploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
 
 void SetLightSensor();
 void GetLightSensorInfo();
@@ -385,7 +386,7 @@ void CheckSensorData() {
         delay(2000);
         asd = true;
     }
-
+    
     CheckTemperatureData();
     CheckHumidityData();
 }
@@ -396,49 +397,63 @@ enum Status {
     Critical
 };
 Status greenhouseStatus;
-String BlynkStatusWidgetMessage = "";
-String BlynkStatusWidgetColor = ""; // https://htmlcolorcodes.com/colors/shades-of-green/
+// https://htmlcolorcodes.com/colors/shades-of-green/
+String colorGreen = "#228B22";
+String colorOrange = "#FFC300";
+String colorRed = "#C70039";
 
 void CheckTemperatureData() {
+    String widgetColor = "";
+
     if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
         greenhouseStatus = Normal;
-
-        BlynkStatusWidgetMessage = "Temperature is within ideal range (" + String(idealLowTemp) + " - " + String(idealHighTemp) + ")";
-        BlynkStatusWidgetColor = "#228B22"; // green
+        widgetColor = colorGreen;
     } else if ((temperature > minTemp && temperature < idealLowTemp) || (temperature > idealHighTemp && temperature < maxTemp)) {
         greenhouseStatus = Warning;
-
-        BlynkStatusWidgetMessage = "Warning, temperature is not within ideal range";
-        BlynkStatusWidgetColor = "#FFC300"; // orange
+        widgetColor = colorOrange;
     } else if (temperature < minTemp || temperature > maxTemp) {
         greenhouseStatus = Critical;
-
-        BlynkStatusWidgetMessage = "WARNING, temperature is reaching dangerous levels";
-        BlynkStatusWidgetColor = "#C70039"; // red
+        widgetColor = colorRed;
     }
 
-    UpdateBlynkWidgetContent(V9, BlynkStatusWidgetMessage);
-    UpdateBlynkWidgetColor(V9, BlynkStatusWidgetColor);
-}
-
-void UploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
-
-    switch (greenhouseStatus) {
-    case Normal:
-    }
+    UploadStatusMessageToBlynk(V9, "Temperature", widgetColor, idealLowTemp, idealHighTemp);
 }
 
 void CheckHumidityData() {
+    String widgetColor = "";
+
     if (humidity >= idealLowHumidity && humidity <= idealHighHumidity) {
-        BlynkStatusWidgetMessage = "Humidity is within ideal range (" + String(idealLowHumidity) + " - " + String(idealHighHumidity) + ")";
-        BlynkStatusWidgetColor = "#228B22";
+        greenhouseStatus = Normal;
+        widgetColor = colorGreen;
     } else {
-        BlynkStatusWidgetMessage = "WARNING, humidity is reaching dangerous levels"; // Humidity more severe outside ideal compared to temperature.
-        BlynkStatusWidgetColor = "#C70039";
+        greenhouseStatus = Critical;
+        widgetColor = colorRed;
     }
 
-    UpdateBlynkWidgetColor(V8, BlynkStatusWidgetColor);
-    UpdateBlynkWidgetContent(V8, BlynkStatusWidgetMessage);
+    UploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);
+}
+
+void UploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
+    String BlynkStatusWidgetMessage = "";
+    String BlynkStatusWidgetColor = "";
+
+    switch (greenhouseStatus) {
+    case Normal:
+        BlynkStatusWidgetMessage = widgetMessage + " is within ideal range (" + String(idealLow) + " - " + String(idealHigh) + ")";
+        BlynkStatusWidgetColor = widgetColor;
+        break;
+    case Warning:
+        BlynkStatusWidgetMessage = "Warning, " + widgetMessage + " is not within ideal range.";
+        BlynkStatusWidgetColor = widgetColor;
+        break;
+    case Critical:
+        BlynkStatusWidgetMessage = "Critical Warning! " + widgetMessage + " is reaching dangerous levels";
+        BlynkStatusWidgetColor = widgetColor;
+        break;
+    }
+
+    UpdateBlynkWidgetContent(vp, BlynkStatusWidgetMessage);
+    UpdateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
 
 bool ReadTemperature() {
