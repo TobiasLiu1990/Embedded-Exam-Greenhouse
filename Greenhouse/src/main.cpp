@@ -129,7 +129,7 @@ void TimerMillis();
 
 void ConnectToOpenWeatherMap();
 void ShowTodaysDateAndWeather();
-void GetWeatherInfo();
+String GetWeatherInfo();
 
 String ErrorCheckingSensors();
 void ReadTemperature();
@@ -268,11 +268,11 @@ void setup() {
     Serial.println("Now connected to Blynk Greenhouse!");
 
     // Start interval to read sensor stuff
-    // while (!isSensorStarted) {
+    while (!isSensorStarted) {
     /*
         If sensor is not reading yet, wait to post to blynk
     */
-    // }
+    }
 
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, ShowTodaysDateAndWeather);
@@ -285,6 +285,10 @@ void setup() {
 void loop() {
     Blynk.run();
     timer.run();
+
+    //Use millis to set timer to upload data to blynk
+
+
 
     if (isStateChanged) {
         Serial.println("Did i enter to change state variables????");
@@ -310,6 +314,7 @@ void loop() {
             Blynk.virtualWrite(V4, 0);
         }
     }
+
 }
 
 void initBlynk() {
@@ -592,13 +597,14 @@ void UpdateBlynkWidgetColor(char vp, String color) {
     FIND BETTER WAY TO DO THIS
 */
 
-String weather = "";
 void ShowTodaysDateAndWeather() {
     String now = printDateTime(Rtc.GetDateTime());
+    String weather = "";
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillis >= waitInterval) {
         ConnectToOpenWeatherMap();
+        weather = GetWeatherInfo();
         previousMillis = currentMillis;
     }
 
@@ -627,7 +633,6 @@ void ConnectToOpenWeatherMap() {
             // Json
             weather_0 = doc["weather"][0];
             mainInfo = doc["main"];
-            GetWeatherInfo();
         } else {
             Serial.print("Error on HTTP request: ");
             Serial.println(httpCode);
@@ -636,11 +641,11 @@ void ConnectToOpenWeatherMap() {
     }
 }
 
-void GetWeatherInfo() {
+String GetWeatherInfo() {
     const char *weatherDescription = weather_0["description"];
     float mainInfo_temp = mainInfo["temp"];
 
-    weather = String(weatherDescription) + ". " + mainInfo_temp + "C";
+    return String(weatherDescription) + ". " + mainInfo_temp + "C";
 }
 
 #define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
