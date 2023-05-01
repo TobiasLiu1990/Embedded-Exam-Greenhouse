@@ -94,7 +94,10 @@ const float tempDiff = 1.9 - 0.7;
 //--------Wifi
 bool isConnected = false;
 
-//Timers
+// Timers
+unsigned long previousMillis = 0;
+const long waitInterval = 1000;
+
 unsigned long previousMillisWeather = 0;
 const long waitIntervalWeather = 120000; // 2min per weather update
 
@@ -137,8 +140,11 @@ void ShowTodaysDateAndWeather();
 String GetWeatherInfo();
 
 String ErrorCheckingSensors();
-void ReadTemperature();
-void ReadHumidity();
+bool ReadTemperature();
+void UploadTemperatureToBlynk();
+bool ReadHumidity();
+void UploadHumidityToBlynk();
+
 void SetLightSensor();
 void GetLightSensorInfo();
 void CheckSensorData();
@@ -272,15 +278,14 @@ void setup() {
     }
     Serial.println("Now connected to Blynk Greenhouse!");
 
-
     // Blynk .setInterval can not take a function with arguments
 
-    //These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
+    // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, ShowTodaysDateAndWeather);
-    timer.setInterval(5000L, ReadTemperature);
-    timer.setInterval(5000L, ReadHumidity);
+    // timer.setInterval(5000L, ReadTemperature);
+    // timer.setInterval(5000L, ReadHumidity);
     timer.setInterval(5000L, SetLightSensor);
-    timer.setInterval(2000L, CheckSensorData);
+    timer.setInterval(10000L, CheckSensorData);
 }
 
 void loop() {
@@ -289,8 +294,18 @@ void loop() {
 
     // Use millis to set timer to upload data to blynk
     unsigned long currentMillis = millis();
-    if (currentMillis - previousMillisSensor >= waitIntervalSensor) {       //Read sensor data every 5s
-        
+    if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
+        if (ReadTemperature()) {
+            UploadTemperatureToBlynk();
+        }
+
+        if (ReadHumidity()) {
+            UploadHumidityToBlynk();
+        }
+
+        /*
+            setInterval should read data. When data is read/all ok - then upload to blynk in here
+        */
 
         previousMillisSensor = currentMillis;
     }
@@ -368,6 +383,9 @@ void FruitStateTransition() {
 }
 
 void CheckSensorData() {
+    /*
+        Should have a check that sensor data is ready first.
+    */
     CheckTemperatureData();
     CheckHumidityData();
 }
@@ -401,28 +419,38 @@ void CheckHumidityData() {
     UpdateBlynkWidgetContent(V8, BlynkStatusWidgetMessage);
 }
 
-void ReadTemperature() {
+bool ReadTemperature() {
     temperature = sht31.readTemperature() - temperatureDifference;
 
     if (!isnan(temperature)) {
-        Blynk.virtualWrite(V1, temperature);
         Serial.print(F("Temperature: "));
         Serial.println(temperature);
+        return true;
     } else {
         Serial.println(F("Error, cannot read temperature "));
+        return false;
     }
 }
 
-void ReadHumidity() {
+void UploadTemperatureToBlynk() {
+    Blynk.virtualWrite(V1, temperature);
+}
+
+bool ReadHumidity() {
     humidity = sht31.readHumidity() - humidityDifference;
 
     if (!isnan(humidity)) {
-        Blynk.virtualWrite(V2, humidity);
         Serial.print(F("Humidity: "));
         Serial.println(humidity);
+        return true;
     } else {
         Serial.println(F("Error, cannot read Humidity"));
+        return false;
     }
+}
+
+void UploadHumidityToBlynk() {
+    Blynk.virtualWrite(V2, humidity);
 }
 
 void SetLightSensor() {
