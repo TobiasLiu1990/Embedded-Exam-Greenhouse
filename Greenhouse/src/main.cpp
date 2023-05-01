@@ -110,8 +110,10 @@ enum Fruits {
     Pineapple
 };
 
-Fruits currentState; // Will be set to Bananas by default in Setup()
-int stateNumber;     // 0 will default to Bananas
+Fruits currentState = Banana;                // Will be set to Bananas by default in Setup()
+int stateNumber = 0;                // 0 will default to Bananas
+int oldStateNumber = stateNumber;
+
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
 bool isFirstConnection = true;
@@ -176,7 +178,11 @@ void SetMotorIdle();
 // Checks Widget for state change on fruits.
 BLYNK_WRITE(V0) {
     stateNumber = param.asInt();
-    isStateChanged = true;
+
+    if (oldStateNumber != stateNumber) {
+        isStateChanged = true;
+    }
+    oldStateNumber = stateNumber;
 }
 
 // Checks state for window if open/closed.
@@ -196,10 +202,10 @@ BLYNK_CONNECTED() {
     // Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
     // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
 
-    if (isFirstConnection) {
+    //if (isFirstConnection) {
         Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
         isFirstConnection = false;
-    }
+    //}
 }
 //
 // Blynk
@@ -246,7 +252,6 @@ void setup() {
     Wire.begin(3, 4); // i2c SDC, SCL
     Rtc.Begin();
     bool isSensorStarted = false;
-    currentState = Banana;
 
     pinMode(motorPin1, OUTPUT);
     pinMode(motorPin2, OUTPUT);
@@ -287,6 +292,9 @@ void setup() {
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(10000L, CheckSensorData);
 }
+
+bool temperatureUploadSuccessful = false;
+bool humidityUploadSuccessful = false;
 
 void loop() {
     Blynk.run();
