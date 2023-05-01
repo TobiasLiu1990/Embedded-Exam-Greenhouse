@@ -130,8 +130,6 @@ float idealLowTemp;
 float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
-String BlynkStatusWidgetMessage = "";
-String BlynkStatusWidgetColor = ""; // https://htmlcolorcodes.com/colors/shades-of-green/
 
 // Forward declarations
 //
@@ -397,21 +395,37 @@ enum Status {
     Warning,
     Critical
 };
+Status greenhouseStatus;
+String BlynkStatusWidgetMessage = "";
+String BlynkStatusWidgetColor = ""; // https://htmlcolorcodes.com/colors/shades-of-green/
 
 void CheckTemperatureData() {
     if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
+        greenhouseStatus = Normal;
+
         BlynkStatusWidgetMessage = "Temperature is within ideal range (" + String(idealLowTemp) + " - " + String(idealHighTemp) + ")";
         BlynkStatusWidgetColor = "#228B22"; // green
     } else if ((temperature > minTemp && temperature < idealLowTemp) || (temperature > idealHighTemp && temperature < maxTemp)) {
+        greenhouseStatus = Warning;
+
         BlynkStatusWidgetMessage = "Warning, temperature is not within ideal range";
         BlynkStatusWidgetColor = "#FFC300"; // orange
     } else if (temperature < minTemp || temperature > maxTemp) {
+        greenhouseStatus = Critical;
+
         BlynkStatusWidgetMessage = "WARNING, temperature is reaching dangerous levels";
         BlynkStatusWidgetColor = "#C70039"; // red
     }
 
     UpdateBlynkWidgetContent(V9, BlynkStatusWidgetMessage);
     UpdateBlynkWidgetColor(V9, BlynkStatusWidgetColor);
+}
+
+void UploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
+
+    switch (greenhouseStatus) {
+    case Normal:
+    }
 }
 
 void CheckHumidityData() {
