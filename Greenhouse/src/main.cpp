@@ -380,17 +380,13 @@ void FruitStateTransition() {
     }
 }
 
-bool asd = false;
+bool onStartUpDelay = true;
 void CheckSensorData() {
-    if (asd == false) {
+    if (onStartUpDelay) {
         delay(3000);
-        asd = true;
+        onStartUpDelay = false;
     }
 
-    /*
-        Create a timer to check if readTemp and readHumid returns true. If so, jump out and start checking data status
-    */
-    
     CheckTemperatureStatus();
     CheckHumidityStatus();
 }
