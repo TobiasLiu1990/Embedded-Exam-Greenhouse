@@ -132,7 +132,7 @@ void TimerMillis();
 
 void ConnectToOpenWeatherMap();
 void ShowCurrentDateAndTime();
-void ShowTodaysDateAndWeather();
+void ShowCurrentWeather();
 String GetWeatherInfo();
 
 String ErrorCheckingSensors();
@@ -277,13 +277,13 @@ void setup() {
         Serial.println("Connecting hardware to Blynk...");
     }
     initBlynk(); // Init Blynk with Banana as default
-    Serial.println("Now connected to Blynk Greenhouse!");
+    Serial.println("currentDateAndTime connected to Blynk Greenhouse!");
 
     // Blynk .setInterval can not take a function with arguments
 
     // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, ShowCurrentDateAndTime);
-    timer.setInterval(120000, ShowTodaysDateAndWeather);
+    timer.setInterval(120000, ShowCurrentWeather);
     timer.setInterval(5000L, SetLightSensor);
     timer.setInterval(1000L, CheckSensorData);
 }
@@ -368,11 +368,11 @@ void FruitStateTransition() {
     switch (stateNumber) {
     case 0:
         currentState = Banana;
-        Serial.println("Banana state now");
+        Serial.println("Banana state currentDateAndTime");
         break;
     case 1:
         currentState = Pineapple;
-        Serial.println("pineapple state now");
+        Serial.println("pineapple state currentDateAndTime");
         break;
     }
 }
@@ -380,7 +380,7 @@ void FruitStateTransition() {
 bool onStartUpDelay = true;
 void CheckSensorData() {
     if (onStartUpDelay) {
-        delay(3000);
+        delay(5000);
         onStartUpDelay = false;
     }
 
@@ -663,22 +663,24 @@ void UpdateBlynkWidgetColor(char vp, String color) {
 */
 
 void ShowCurrentDateAndTime() {
-    
+    String currentDateAndTime = printDateTime(Rtc.GetDateTime());
+    Blynk.virtualWrite(V30, currentDateAndTime);
 }
 
 String weather = "";
-void ShowTodaysDateAndWeather() {
-    String now = printDateTime(Rtc.GetDateTime());
+void ShowCurrentWeather() {
+    
 
-    //unsigned long currentMillis = millis();
-    //if (currentMillis - previousMillisWeather >= waitIntervalWeather) {
+
+    /*
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillisWeather >= waitIntervalWeather) {
         ConnectToOpenWeatherMap();
         weather = GetWeatherInfo();
 
-        //previousMillisWeather = currentMillis;
-    //}
-
-    Blynk.virtualWrite(V30, now + ". " + weather);
+        previousMillisWeather = currentMillis;
+    }
+    */
 }
 
 JsonObject weather_0;
@@ -778,19 +780,19 @@ void RtcErrorCheckingAndUpdatingDate() {
 
     if (!Rtc.GetIsRunning()) {
         if (!wasError("setup GetIsRunning")) {
-            Serial.println("RTC was not actively running, starting now");
+            Serial.println("RTC was not actively running, starting currentDateAndTime");
             Rtc.SetIsRunning(true);
         }
     }
 
-    RtcDateTime now = Rtc.GetDateTime();
+    RtcDateTime currentDateAndTime = Rtc.GetDateTime();
     if (!wasError("setup GetDateTime")) {
-        if (now < compiled) {
+        if (currentDateAndTime < compiled) {
             Serial.println("RTC is older than compile time, updating DateTime");
             Rtc.SetDateTime(compiled);
-        } else if (now > compiled) {
+        } else if (currentDateAndTime > compiled) {
             Serial.println("RTC is newer than compile time, this is expected");
-        } else if (now == compiled) {
+        } else if (currentDateAndTime == compiled) {
             Serial.println("RTC is the same as compile time, while not expected all is still fine");
         }
     }
