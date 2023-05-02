@@ -11,10 +11,8 @@
 
 #include "ConnectOpenWeathermap.h"
 #include "ESP32IntegratedSensor.h"
+#include "ESP32_LTR329.h"
 #include "StepperMotorVent.h"
-//#include "RTCDateAndTime.h"
-#include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
-// #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
 //   Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Wifi
@@ -25,7 +23,6 @@ const char *password = "NikitaBoy";
 #include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
-#include "BlynkHelper.h"
 
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
 #define BLYNK_TEMPLATE_NAME "Greenhouse"
@@ -44,17 +41,9 @@ const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
 ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 
-ltr329_gain_t pineappleGain = LTR3XX_GAIN_1; // GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
-ltr329_integrationtime_t pineappleIntegTime = LTR3XX_INTEGTIME_100;
-ltr329_measurerate_t pineappleMeasurementRate = LTR3XX_MEASRATE_100;
-
-ltr329_gain_t bananaGain = LTR3XX_GAIN_4; // GAIN_4 = 0.25 lux - 16k lux
-ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
-ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
-
-Adafruit_LTR329 ltr329 = Adafruit_LTR329();
 RtcDS3231<TwoWire> Rtc(Wire);
 ESP32IntegratedSensor esp32Sensor;
+ESP32_LTR329 ltr329;
 
 //---------------------L293D
 // Might add fan for later use if possible
@@ -99,7 +88,6 @@ String colorGreen = "#228B22";
 String colorOrange = "#FFC300";
 String colorRed = "#C70039";
 
-
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
 bool isConnectedToBlynk = false;
@@ -121,7 +109,6 @@ float lowerTemperatureMargin = idealLowTemp + esp32Sensor.getLowerTemperatureMar
 void errorCheckingSensors();
 void rtcErrorCheckingAndUpdatingDate();
 
-
 void fruitStateTransition();
 void updateFruitStateConditions();
 
@@ -132,8 +119,8 @@ void showCurrentWeather();
 void checkSensorData();
 void checkTemperatureStatus();
 void checkHumidityStatus();
-void setLightSensor();
-void getLightSensorInfo();
+// void setLightSensor();
+// void getLightSensorInfo();
 
 void uploadTemperatureToBlynk();
 void uploadHumidityToBlynk();
@@ -230,7 +217,7 @@ void setup() {
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
 
-    rtcErrorCheckingAndUpdatingDate();      // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
+    rtcErrorCheckingAndUpdatingDate(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     errorCheckingSensors();
 
     WiFi.begin(ssid, password);
@@ -254,8 +241,8 @@ void setup() {
 
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, showCurrentDateAndTime);
-    timer.setInterval(300000L, showCurrentWeather);         //every 5mins
-    timer.setInterval(5000L, setLightSensor);
+    timer.setInterval(300000L, showCurrentWeather); // every 5mins
+    // timer.setInterval(5000L, setLightSensor);
     timer.setInterval(1000L, checkSensorData);
 }
 
@@ -359,10 +346,13 @@ void fruitStateTransition() {
     switch (stateNumber) {
     case 0:
         currentState = Banana;
+        ltr329.setGain(LTR3XX_GAIN_4); // Banana - GAIN_4 = 0.25 lux - 16k lux
         Serial.println("Banana state currentDateAndTime");
         break;
     case 1:
         currentState = Pineapple;
+        ltr329.setGain(LTR3XX_GAIN_1); // Pineapple - GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
+
         Serial.println("pineapple state currentDateAndTime");
         break;
     }
@@ -440,9 +430,10 @@ void uploadHumidityToBlynk() {
 }
 
 void setLightSensor() {
+
     ltr329.setGain(LTR3XX_GAIN_4);
-    ltr329.setIntegrationTime(LTR3XX_INTEGTIME_200); // Amount of time available to obtain a measurement during which there is essentially no change in the level of the signal
-    ltr329.setMeasurementRate(LTR3XX_MEASRATE_200);  // Number of measurement values generated per second
+    ltr329.setIntegrationTime(LTR3XX_INTEGTIME_250); // Amount of time available to obtain a measurement during which there is essentially no change in the level of the signal
+    ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);  // Number of measurement values generated per second
 
     getLightSensorInfo();
 }
