@@ -9,7 +9,7 @@
 #include <Wire.h>
 
 #include "ConnectOpenWeathermap.h"
-#include "ESP32IntegratedSensor.h"
+#include "ESP32_SHT31_Sensor.h"
 #include "ESP32_LTR329.h"
 #include "StepperMotorVent.h"
 //   Later maybe add accelerometer to check if it has been flipped (for light sensor)
@@ -41,7 +41,7 @@ const String metric = "&units=metric";
 ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 
 RtcDS3231<TwoWire> Rtc(Wire);
-ESP32IntegratedSensor esp32Sensor;
+ESP32_SHT31_Sensor sht31;
 ESP32_LTR329 ltr;
 
 //---------------------L293D
@@ -103,11 +103,11 @@ float idealLowTemp;
 float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
-float upperTemperatureMargin = idealHighTemp - esp32Sensor.getUpperTemperatureMargin();
-float lowerTemperatureMargin = idealLowTemp + esp32Sensor.getLowerTemperatureMargin();
+float upperTemperatureMargin = idealHighTemp - sht31.getUpperTemperatureMargin();
+float lowerTemperatureMargin = idealLowTemp + sht31.getLowerTemperatureMargin();
 
 // Forward declarations
-void esp32SensorStartupCheck();
+void sht31StartupCheck();
 void rtcErrorCheckingAndUpdatingDate();
 
 void fruitStateTransition();
@@ -218,7 +218,7 @@ void setup() {
     pinMode(motorPin4, OUTPUT);
 
     rtcErrorCheckingAndUpdatingDate(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
-    esp32SensorStartupCheck();
+    sht31StartupCheck();
 
     WiFi.begin(ssid, password);
     delay(100);
@@ -252,12 +252,12 @@ void loop() {
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
-        temperature = esp32Sensor.readTemperature();
-        humidity = esp32Sensor.readHumidity();
+        temperature = sht31.readTemperature();
+        humidity = sht31.readHumidity();
         temperatureReady = false;
         humidityReady = false;
 
-        if (esp32Sensor.validateNumberReading(temperature)) {
+        if (sht31.validateNumberReading(temperature)) {
             uploadTemperatureToBlynk();
             temperatureReady = true;
 
@@ -267,7 +267,7 @@ void loop() {
             Serial.println(F("Error, cannot read temperature ")); // debugging for now
         }
 
-        if (esp32Sensor.validateNumberReading(humidity)) {
+        if (sht31.validateNumberReading(humidity)) {
             uploadHumidityToBlynk();
             humidityReady = true;
 
@@ -500,8 +500,8 @@ void showCurrentWeather() {
     openWeathermap.disconnectToOpenWeatherMap();
 }
 
-void esp32SensorStartupCheck() {
-    if (esp32Sensor.checkSensorSht31()) {
+void sht31StartupCheck() {
+    if (sht31.checkSensorSht31()) {
         Serial.println("SHT31 - Cannot find sensor");
         updateBlynkWidgetLabel(V1, "SHT31 sensor error");
         updateBlynkWidgetLabel(V2, "SHT31 sensor error");
