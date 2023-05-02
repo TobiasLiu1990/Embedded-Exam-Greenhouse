@@ -1,13 +1,6 @@
 /*
   https://stackoverflow.com/questions/46111834/format-curly-braces-on-same-line-in-c-vscode - For changing auto format behaviour
   https://htmlcolorcodes.com/colors/shades-of-green/
-
-    Other components:
-    Fan (act as vent) - ventilation on/off depending on temp
-
-    Ref:
-    Light sensor library: https://adafruit.github.io/Adafruit_LTR329_LTR303/html/class_adafruit___l_t_r329.html
-
 */
 
 #include <Adafruit_DotStar.h>
@@ -19,41 +12,36 @@
 #include "ConnectOpenWeathermap.h"
 #include "ESP32IntegratedSensor.h"
 #include "StepperMotorVent.h"
-
-// Sensors
+// #include "RTCDateAndTime.h"
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
 // #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
 //   Later maybe add accelerometer to check if it has been flipped (for light sensor)
+
+// Wifi
+const char *ssid = "Venti_2.4G";
+const char *password = "NikitaBoy";
 
 // Blynk
 #include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
 
-// Wifi
-const char* ssid = "Venti_2.4G";
-const char* password = "NikitaBoy";
+#define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
+#define BLYNK_TEMPLATE_NAME "Greenhouse"
+#define BLYNK_AUTH_TOKEN "90qZjiZBUZwmDULPB9tlfsDqq3fXuoZf"
+#define BLYNK_PRINT Serial
+
+char auth[] = BLYNK_AUTH_TOKEN; // Blynk token
+char ssidBlynk[] = "Venti_2.4G";
+char pass[] = "NikitaBoy";
+
+BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 
 // Openweathermap
 const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,no&APPID=";
 const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
 ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
-
-// Blynk info
-#define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
-#define BLYNK_TEMPLATE_NAME "Greenhouse"
-#define BLYNK_AUTH_TOKEN "90qZjiZBUZwmDULPB9tlfsDqq3fXuoZf"
-#define BLYNK_PRINT Serial
-
-char auth[] = BLYNK_AUTH_TOKEN;  // Blynk token
-char ssidBlynk[] = "Venti_2.4G"; // Wifi
-char pass[] = "NikitaBoy";       // Wifi pw
-
-BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
-
-Adafruit_LTR329 ltr329 = Adafruit_LTR329();
-RtcDS3231<TwoWire> Rtc(Wire);
 
 ltr329_gain_t pineappleGain = LTR3XX_GAIN_1; // GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
 ltr329_integrationtime_t pineappleIntegTime = LTR3XX_INTEGTIME_100;
@@ -63,6 +51,8 @@ ltr329_gain_t bananaGain = LTR3XX_GAIN_4; // GAIN_4 = 0.25 lux - 16k lux
 ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
 ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 
+Adafruit_LTR329 ltr329 = Adafruit_LTR329();
+RtcDS3231<TwoWire> Rtc(Wire);
 ESP32IntegratedSensor esp32Sensor;
 
 //---------------------L293D
@@ -70,7 +60,7 @@ ESP32IntegratedSensor esp32Sensor;
 // #define enablePin1 D9
 // #define pin1A D6
 
-// Stepper pins
+// Stepper Motor
 const int motorPin1 = 9;  // Blue
 const int motorPin2 = 10; // Pink
 const int motorPin3 = 11; // Yellow
@@ -80,22 +70,23 @@ int ventOpenAngle[4] = {45, 90, 180, 360};
 StepperMotorVent vent(ventOpenAngle[0], motorPin1, motorPin2, motorPin3, motorPin4, motorSpeed);
 
 bool isWindowOpen = false;
-const float tempDiff = 1.9 - 0.7;
-
 
 // Timers
 unsigned long previousMillis = 0;
 const long waitInterval = 1000;
-
 unsigned long previousMillisSensor = 0;
 const long waitIntervalSensor = 5000;
 
-// Using this for FSM
+// FSM For fruits
 enum Fruits {
     Banana,
     Pineapple
 };
+Fruits currentState; // Will be set to Bananas by default
+int stateNumber;     // 0 will default to Bananas
+int oldStateNumber = stateNumber;
 
+// For different warning messages to Blynk.
 enum Status {
     Normal,
     Warning,
@@ -107,14 +98,15 @@ String colorGreen = "#228B22";
 String colorOrange = "#FFC300";
 String colorRed = "#C70039";
 
-Fruits currentState; // Will be set to Bananas by default
-int stateNumber;     // 0 will default to Bananas
-int oldStateNumber = stateNumber;
 
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
 bool isConnectedToBlynk = false;
 
+float temperature;
+float humidity;
+bool temperatureReady;
+bool humidityReady;
 float minTemp;
 float maxTemp;
 float idealLowTemp;
@@ -122,47 +114,37 @@ float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
 
-float temperature;
-float humidity;
-bool temperatureReady;
-bool humidityReady;
 
 // Forward declarations
-//
-void timerMillis();
+void errorCheckingSensors();
+void rtcErrorCheckingAndUpdatingDate();
+
+
+void fruitStateTransition();
+void updateFruitStateConditions();
 
 void showCurrentDateAndTime();
+String printDateTime(const RtcDateTime &date);
 void showCurrentWeather();
-
-void errorCheckingSensors();
-void uploadTemperatureToBlynk();
-void uploadHumidityToBlynk();
-void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
-
-void setLightSensor();
-void getLightSensorInfo();
 
 void checkSensorData();
 void checkTemperatureStatus();
 void checkHumidityStatus();
+void setLightSensor();
+void getLightSensorInfo();
 
-void fruitStateTransition();
-void updateFruitStateConditions();
+void uploadTemperatureToBlynk();
+void uploadHumidityToBlynk();
+void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
 
 void initBlynk();
 void resetBlynkWidget(String color, String message);
 void updateBlynkWidgetColor(char vp, String color);
 void updateBlynkWidgetContent(char vp, String message);
 void updateBlynkWidgetLabel(char vp, String message);
-
-String printDateTime(const RtcDateTime &date);
-void rtcErrorCheckingAndUpdatingDate(); // Might need to fix a bit later. Currently copied from Rtc by Makuna example.
-
-//
 // Forward declarations
 
 // Blynk
-//
 // Checks Widget for state change on fruits.
 BLYNK_WRITE(V0) {
     stateNumber = param.asInt();
@@ -197,7 +179,6 @@ BLYNK_CONNECTED() {
 BLYNK_DISCONNECTED() {
     isConnectedToBlynk = false;
 }
-//
 // Blynk
 
 bool wasError(const char *errorTopic = "") {
@@ -241,15 +222,13 @@ void setup() {
     Serial.begin(115200);
     Wire.begin(3, 4); // i2c SDC, SCL
     Rtc.Begin();
-    bool isSensorStarted = false;
 
     pinMode(motorPin1, OUTPUT);
     pinMode(motorPin2, OUTPUT);
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
 
-    // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
-    rtcErrorCheckingAndUpdatingDate();
+    rtcErrorCheckingAndUpdatingDate();      // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     errorCheckingSensors();
 
     WiFi.begin(ssid, password);
@@ -266,9 +245,10 @@ void setup() {
 
     while (!Blynk.connected()) {
         Serial.println("Connecting hardware to Blynk...");
+        delay(1000);
     }
-    initBlynk(); // Init Blynk with Banana as default
     Serial.println("currentDateAndTime connected to Blynk Greenhouse!");
+    initBlynk(); // Init Blynk with Banana as default
 
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, showCurrentDateAndTime);
@@ -292,8 +272,8 @@ void loop() {
             uploadTemperatureToBlynk();
             temperatureReady = true;
 
-            //Serial.print(F("Temperature: ")); // debugging for now
-            //Serial.println(temperature);      // debugging for now
+            // Serial.print(F("Temperature: ")); // debugging for now
+            // Serial.println(temperature);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read temperature ")); // debugging for now
         }
@@ -302,8 +282,8 @@ void loop() {
             uploadHumidityToBlynk();
             humidityReady = true;
 
-            //Serial.print(F("Humidity: ")); // debugging for now
-            //Serial.println(humidity);      // debugging for now
+            // Serial.print(F("Humidity: ")); // debugging for now
+            // Serial.println(humidity);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read Humidity")); // debugging for now
         }
@@ -317,7 +297,7 @@ void loop() {
     }
 
     if (isWindowOpen == false) {
-        if (temperature > (idealHighTemp - tempDiff)) { // This check is so that the windows should open before the current temp at bench level gets to high.
+        if (temperature > (idealHighTemp - esp32Sensor.getUpperTemperatureMargin())) { // This check is so that the windows should open before the current temp at bench level gets to high.
             isWindowOpen = true;
             vent.openWindow();
             vent.setMotorIdle();
@@ -326,7 +306,7 @@ void loop() {
             Blynk.virtualWrite(V4, 1);
         }
     } else {
-        if (temperature < idealLowTemp + 3) {
+        if (temperature < idealLowTemp + esp32Sensor.getLowerTemperatureMargin()) {
             isWindowOpen = false;
             vent.closeWindow();
             vent.setMotorIdle();
@@ -516,19 +496,6 @@ void showCurrentDateAndTime() {
     Blynk.virtualWrite(V30, currentDateAndTime);
 }
 
-
-void showCurrentWeather() {
-    openWeathermap.connectToOpenWeatherMap();
-    String weatherInfo = openWeathermap.getWeatherInfo();
-
-    Serial.print("Weather info: ");
-    Serial.println(weatherInfo);
-
-    Blynk.virtualWrite(V31, weatherInfo);
-    openWeathermap.disconnectToOpenWeatherMap();
-}
-
-
 #define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
 String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_Simple (Rtc by Makuna)
     char dateString[20];
@@ -546,15 +513,26 @@ String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_
     return dateString;
 }
 
+void showCurrentWeather() {
+    openWeathermap.connectToOpenWeatherMap();
+    String weatherInfo = openWeathermap.getWeatherInfo();
+
+    Serial.print("Weather info: ");
+    Serial.println(weatherInfo);
+
+    Blynk.virtualWrite(V31, weatherInfo);
+    openWeathermap.disconnectToOpenWeatherMap();
+}
+
 void errorCheckingSensors() {
-    if (esp32Sensor.errorCheckTemperatureSensor()) {
+    if (esp32Sensor.errorCheckTemperatureHumiditySensor()) {
         Serial.println("SHT31 - Cannot find sensor");
-        // updateBlynkWidgetLabel(V1, "Temperature sensor error");
+        updateBlynkWidgetLabel(V1, "SHT31 sensor error");
+        updateBlynkWidgetLabel(V2, "SHT31 sensor error");
     };
 
     if (!ltr329.begin()) {
         Serial.println("LTR329 - Cannot find sensor");
-        updateBlynkWidgetLabel(V2, "Humidity sensor error");
         while (1)
             yield();
     }
@@ -606,13 +584,4 @@ void rtcErrorCheckingAndUpdatingDate() {
     wasError("setup Enable32kHzPin");
     Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
     wasError("setup SetSquareWavePin");
-}
-
-// Delay timer but with millis. Runs every 1500ms.
-void timerMillis() {
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= waitInterval) {
-
-        previousMillis = currentMillis;
-    }
 }

@@ -17,6 +17,9 @@ public:
     float readHumidity();
     float getTemperatureCompensation();
     float getHumidityCompensation();
+    float getUpperTemperatureMargin();
+    float getLowerTemperatureMargin();
+
     bool validateNumberReading(float readings);
-    bool errorCheckTemperatureSensor();
+    bool errorCheckTemperatureHumiditySensor();
 };
