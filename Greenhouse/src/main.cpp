@@ -10,7 +10,7 @@
 
 #include "ConnectOpenWeathermap.h"
 #include "ESP32_SHT31_Sensor.h"
-#include "ESP32_LTR329.h"
+#include "ESP32_LTR329_Sensor.h"
 #include "StepperMotorVent.h"
 //   Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
@@ -42,7 +42,7 @@ ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 
 RtcDS3231<TwoWire> Rtc(Wire);
 ESP32_SHT31_Sensor sht31;
-ESP32_LTR329 ltr;
+ESP32_LTR329_Sensor ltr;
 
 //---------------------L293D
 // Might add fan for later use if possible
