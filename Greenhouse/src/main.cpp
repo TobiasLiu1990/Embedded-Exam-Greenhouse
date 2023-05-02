@@ -1,13 +1,9 @@
 /*
   https://stackoverflow.com/questions/46111834/format-curly-braces-on-same-line-in-c-vscode - For changing auto format behaviour
+  https://htmlcolorcodes.com/colors/shades-of-green/
 
     Other components:
     Fan (act as vent) - ventilation on/off depending on temp
-
-    Date/time with RTC when:
-      Update greenhouse information every 10mins.
-      Openweathermap updates
-      If something goes wrong
 
     Ref:
     Light sensor library: https://adafruit.github.io/Adafruit_LTR329_LTR303/html/class_adafruit___l_t_r329.html
@@ -16,11 +12,9 @@
 
 #include <Adafruit_DotStar.h>
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <RtcDS3231.h>
 #include <Wire.h>
-#include <i2cdetect.h>
 
 #include "ConnectOpenWeathermap.h"
 #include "ESP32IntegratedSensor.h"
@@ -102,6 +96,17 @@ enum Fruits {
     Pineapple
 };
 
+enum Status {
+    Normal,
+    Warning,
+    Critical
+};
+Status greenhouseStatus;
+
+String colorGreen = "#228B22";
+String colorOrange = "#FFC300";
+String colorRed = "#C70039";
+
 Fruits currentState; // Will be set to Bananas by default
 int stateNumber;     // 0 will default to Bananas
 int oldStateNumber = stateNumber;
@@ -117,6 +122,11 @@ float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
 
+float temperature;
+float humidity;
+bool temperatureReady;
+bool humidityReady;
+
 // Forward declarations
 //
 void timerMillis();
@@ -131,6 +141,7 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
 
 void setLightSensor();
 void getLightSensorInfo();
+
 void checkSensorData();
 void checkTemperatureStatus();
 void checkHumidityStatus();
@@ -260,26 +271,17 @@ void setup() {
     Serial.println("currentDateAndTime connected to Blynk Greenhouse!");
 
     // Blynk .setInterval can not take a function with arguments
-
-    // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, showCurrentDateAndTime);
-    //timer.setInterval(300000L, showCurrentWeather);
-    //timer.setInterval(10000L, showCurrentWeather);
+    timer.setInterval(300000L, showCurrentWeather);
     timer.setInterval(5000L, setLightSensor);
     timer.setInterval(1000L, checkSensorData);
 }
-
-float temperature;
-float humidity;
-bool temperatureReady;
-bool humidityReady;
 
 void loop() {
     Blynk.run();
     timer.run();
 
     unsigned long currentMillis = millis();
-
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
         temperature = esp32Sensor.readTemperature();
         humidity = esp32Sensor.readHumidity();
@@ -384,7 +386,6 @@ void fruitStateTransition() {
     }
 }
 
-bool onStartUpDelay = true;
 void checkSensorData() {
     if (temperatureReady) {
         checkTemperatureStatus();
@@ -393,17 +394,6 @@ void checkSensorData() {
         checkHumidityStatus();
     }
 }
-
-enum Status {
-    Normal,
-    Warning,
-    Critical
-};
-Status greenhouseStatus;
-// https://htmlcolorcodes.com/colors/shades-of-green/
-String colorGreen = "#228B22";
-String colorOrange = "#FFC300";
-String colorRed = "#C70039";
 
 void checkTemperatureStatus() {
     String widgetColor = "";
@@ -533,7 +523,6 @@ void showCurrentWeather() {
 
     Serial.print("Weather info: ");
     Serial.println(weatherInfo);
-
 
     Blynk.virtualWrite(V31, weatherInfo);
     openWeathermap.disconnectToOpenWeatherMap();
