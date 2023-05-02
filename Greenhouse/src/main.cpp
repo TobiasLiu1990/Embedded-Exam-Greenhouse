@@ -404,13 +404,13 @@ void checkHumidityStatus() {
 void getLux() {
     unsigned int lux;
     lux = ltr.getFromLightSensor(lux);
-    Serial.print("I am inside getLux() now and lux: ");
+    Serial.print("Lux: ");
     Serial.println(lux);
 
     if (lux == 0) {
         Serial.println("Could not read lux");
     } else {
-        Blynk.virtualWrite(V3, "Lux: " + lux);
+        Blynk.virtualWrite(V3, lux);
     }
 }
 
