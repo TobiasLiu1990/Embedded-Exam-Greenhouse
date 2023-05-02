@@ -396,26 +396,18 @@ void checkHumidityStatus() {
     uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);
 }
 
-/*
-    Get light sensor converted to lux.
-    upload to blynk.
-
-*/
-
 void getLux() {
     unsigned int lux;
     lux = ltr.getFromLightSensor(lux);
-    Serial.print("I am inside getLux() now and lux: ");
+    Serial.print("Lux: ");
     Serial.println(lux);
 
     if (lux == 0) {
         Serial.println("Could not read lux");
     } else {
-        Blynk.virtualWrite(V3, "Lux: " + lux);
+        Blynk.virtualWrite(V3, lux);
     }
 }
-
-
 
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
     String BlynkStatusWidgetMessage = "";
