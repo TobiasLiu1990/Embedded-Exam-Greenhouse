@@ -1,5 +1,4 @@
 /*
-  Uses Openweathermap.org for weather information. 60 calls per h (free version).
   https://stackoverflow.com/questions/46111834/format-curly-braces-on-same-line-in-c-vscode - For changing auto format behaviour
 
     Other components:
@@ -23,9 +22,9 @@
 #include <Wire.h>
 #include <i2cdetect.h>
 
+#include "ConnectOpenWeathermap.h"
 #include "ESP32IntegratedSensor.h"
 #include "StepperMotorVent.h"
-
 
 // Sensors
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
@@ -37,12 +36,16 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 
+// Wifi
+const char* ssid = "Venti_2.4G";
+const char* password = "NikitaBoy";
+
 // Openweathermap
-const char *ssid = "Venti_2.4G";
-const char *password = "NikitaBoy";
 const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,no&APPID=";
 const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
+
+ConnectOpenWeathermap openWeathermap(ssid, password, endpoint, key, metric);
 
 // Blynk info
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
@@ -54,7 +57,6 @@ char auth[] = BLYNK_AUTH_TOKEN;  // Blynk token
 char ssidBlynk[] = "Venti_2.4G"; // Wifi
 char pass[] = "NikitaBoy";       // Wifi pw
 
-StaticJsonDocument<1024> doc;
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
@@ -75,8 +77,6 @@ ESP32IntegratedSensor esp32Sensor;
 // #define enablePin1 D9
 // #define pin1A D6
 
-
-
 // Stepper pins
 const int motorPin1 = 9;  // Blue
 const int motorPin2 = 10; // Pink
@@ -96,9 +96,6 @@ bool isConnected = false;
 unsigned long previousMillis = 0;
 const long waitInterval = 1000;
 
-unsigned long previousMillisWeather = 0;
-const long waitIntervalWeather = 120000; // 2min per weather update
-
 unsigned long previousMillisSensor = 0;
 const long waitIntervalSensor = 5000;
 
@@ -116,8 +113,6 @@ bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
 bool isConnectedToBlynk = false;
 
-String todaysDateAndWeather = "";
-
 float minTemp;
 float maxTemp;
 float idealLowTemp;
@@ -129,10 +124,8 @@ float idealHighHumidity;
 //
 void timerMillis();
 
-void connectToOpenWeatherMap();
 void showCurrentDateAndTime();
 void showCurrentWeather();
-String getWeatherInfo();
 
 void errorCheckingSensors();
 void uploadTemperatureToBlynk();
@@ -156,7 +149,6 @@ void updateBlynkWidgetLabel(char vp, String message);
 
 String printDateTime(const RtcDateTime &date);
 void rtcErrorCheckingAndUpdatingDate(); // Might need to fix a bit later. Currently copied from Rtc by Makuna example.
-
 
 //
 // Forward declarations
@@ -276,7 +268,8 @@ void setup() {
 
     // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, showCurrentDateAndTime);
-    timer.setInterval(300000L, showCurrentWeather);
+    //timer.setInterval(300000L, showCurrentWeather);
+    timer.setInterval(10000L, showCurrentWeather);
     timer.setInterval(5000L, setLightSensor);
     timer.setInterval(1000L, checkSensorData);
 }
@@ -302,20 +295,20 @@ void loop() {
             uploadTemperatureToBlynk();
             temperatureReady = true;
 
-            Serial.print(F("Temperature: "));   // debugging for now
-            Serial.println(temperature);        // debugging for now
+            Serial.print(F("Temperature: ")); // debugging for now
+            Serial.println(temperature);      // debugging for now
         } else {
-            Serial.println(F("Error, cannot read temperature "));   // debugging for now
+            Serial.println(F("Error, cannot read temperature ")); // debugging for now
         }
 
         if (esp32Sensor.validateNumberReading(humidity)) {
             uploadHumidityToBlynk();
             humidityReady = true;
 
-            Serial.print(F("Humidity: "));      // debugging for now
-            Serial.println(humidity);           // debugging for now
+            Serial.print(F("Humidity: ")); // debugging for now
+            Serial.println(humidity);      // debugging for now
         } else {
-            Serial.println(F("Error, cannot read Humidity"));   // debugging for now
+            Serial.println(F("Error, cannot read Humidity")); // debugging for now
         }
         previousMillisSensor = currentMillis;
     }
@@ -471,7 +464,6 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
     updateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
 
-
 void uploadTemperatureToBlynk() {
     Blynk.virtualWrite(V1, temperature);
 }
@@ -502,8 +494,6 @@ void getLightSensorInfo() {
         }
     }
 }
-
-
 
 void resetBlynkWidget(String color, String message) {
 
@@ -541,57 +531,23 @@ void showCurrentDateAndTime() {
     Blynk.virtualWrite(V30, currentDateAndTime);
 }
 
+
 void showCurrentWeather() {
-    connectToOpenWeatherMap();
-    Blynk.virtualWrite(V31, getWeatherInfo());
+    openWeathermap.connectToOpenWeatherMap();
+    char weatherStatus = openWeathermap.getJsonWeatherStatusData();
+    float weatherTemperature = openWeathermap.getJsonWeatherTemperatureData();
+    String weatherInfo = weatherStatus + ". " + String(weatherTemperature) + "C";
 
-    /*
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillisWeather >= waitIntervalWeather) {
-        connectToOpenWeatherMap();
-        weather = getWeatherInfo();
+    Serial.print("Weather: ");
+    Serial.println(weatherStatus);
+    Serial.print("Weather temp: ");
+    Serial.println(weatherTemperature);
 
-        previousMillisWeather = currentMillis;
-    }
-    */
+
+
+    Blynk.virtualWrite(V31, weatherInfo);
 }
 
-JsonObject weather_0;
-JsonObject mainInfo;
-void connectToOpenWeatherMap() {
-    if (WiFi.status() == WL_CONNECTED) {
-        HTTPClient http;
-
-        http.begin(endpoint + key + metric);
-        int httpCode = http.GET();
-
-        // https://github.com/espressif/arduino-esp32/blob/master/libraries/HTTPClient/src/HTTPClient.h#L36
-        if (httpCode > 0) { // Code > 0 are standard HTTP return codes
-            String payload = http.getString();
-
-            DeserializationError error = deserializeJson(doc, payload); // parses a JSON input and puts the result in a JsonDocument.
-            if (error) {
-                Serial.print(F("deserializeJson() failed"));
-                Serial.println(error.f_str()); // Same as c_str(), except the string is in Flash memory (only relevant for AVR and ESP8266)
-            }
-
-            // Json
-            weather_0 = doc["weather"][0];
-            mainInfo = doc["main"];
-        } else {
-            Serial.print("Error on HTTP request: ");
-            Serial.println(httpCode);
-        }
-        http.end();
-    }
-}
-
-String getWeatherInfo() {
-    const char *weatherDescription = weather_0["description"];
-    float mainInfo_temp = mainInfo["temp"];
-
-    return String(weatherDescription) + ". " + mainInfo_temp + "C";
-}
 
 #define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
 String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_Simple (Rtc by Makuna)
