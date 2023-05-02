@@ -121,6 +121,7 @@ void showCurrentWeather();
 void checkSensorData();
 void checkTemperatureStatus();
 void checkHumidityStatus();
+void getLux();
 
 void uploadTemperatureToBlynk();
 void uploadHumidityToBlynk();
@@ -242,7 +243,7 @@ void setup() {
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, showCurrentDateAndTime);
     timer.setInterval(300000L, showCurrentWeather); // every 5mins
-    // timer.setInterval(5000L, setLightSensor);
+    timer.setInterval(5000L, getLux);
     timer.setInterval(1000L, checkSensorData);
 }
 
@@ -261,8 +262,8 @@ void loop() {
             uploadTemperatureToBlynk();
             temperatureReady = true;
 
-            // Serial.print(F("Temperature: ")); // debugging for now
-            // Serial.println(temperature);      // debugging for now
+            //Serial.print(F("Temperature: ")); // debugging for now
+            //Serial.println(temperature);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read temperature ")); // debugging for now
         }
@@ -271,8 +272,8 @@ void loop() {
             uploadHumidityToBlynk();
             humidityReady = true;
 
-            // Serial.print(F("Humidity: ")); // debugging for now
-            // Serial.println(humidity);      // debugging for now
+           // Serial.print(F("Humidity: ")); // debugging for now
+            //Serial.println(humidity);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read Humidity")); // debugging for now
         }
@@ -400,6 +401,19 @@ void checkHumidityStatus() {
     upload to blynk.
 
 */
+
+void getLux() {
+    unsigned int lux;
+    lux = ltr.getFromLightSensor(lux);
+    Serial.print("I am inside getLux() now and lux: ");
+    Serial.println(lux);
+
+    if (lux == 0) {
+        Serial.println("Could not read lux");
+    } else {
+        Blynk.virtualWrite(V3, "Lux: " + lux);
+    }
+}
 
 
 

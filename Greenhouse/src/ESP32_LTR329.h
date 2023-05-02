@@ -5,6 +5,9 @@ class ESP32_LTR329 {
 public:
     Adafruit_LTR329 ltr329;
     ltr329_gain_t gain;
+    
+    uint16_t visibleAndIr;
+    uint16_t infrared;
 
     ESP32_LTR329() {
         ltr329 = Adafruit_LTR329();
@@ -12,8 +15,6 @@ public:
         ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);
     }
 
-    void getLightSensorInfo();
+    unsigned int getFromLightSensor(unsigned int lux);
     bool checkSensorLtr329();
-
-
 };
