@@ -16,36 +16,27 @@ unsigned int ESP32_LTR329::getFromLightSensor(unsigned int lux) {
         bool data = ltr329.readBothChannels(visibleAndIr, infrared);
 
         if (data) {
-            if (visibleAndIr >= 65535 || infrared >= 65535) { // Saturated sensors
-                lux = 0;
-                return lux;
+            if (visibleAndIr > 65535 || infrared > 65535) { // Saturated sensors
+                return 0;
             }
-
             if (visibleAndIr == 0 || infrared == 0) {
-                lux = 0;
-                return lux;
+                return 0;
             }
 
             double ratio = infrared / (visibleAndIr + infrared);
 
             if (ratio < 0.45) {
-                lux = ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / ltr329.getGain() / ltr329.getIntegrationTime();
-            } else if (ratio < 0.64) {
-                lux = ((4.2785 * visibleAndIr) + (1.9548 * infrared)) / ltr329.getGain() / ltr329.getIntegrationTime();
-            } else if (ratio < 0.85) {
-                lux = ((0.5926 * visibleAndIr) + (0.1185 * infrared)) / ltr329.getGain() / ltr329.getIntegrationTime();
+                return ((1.7743 * visibleAndIr) + (1.1059 * infrared));
+            } else if (ratio < 0.64 && ratio >= 0.45) {
+                return ((4.2785 * visibleAndIr) - (1.9548 * infrared));
+            } else if (ratio < 0.85 && ratio >= 0.64) {
+                return ((0.5926 * visibleAndIr) + (0.1185 * infrared));
             } else {
-                lux = 0;
+                return 0;
             }
-
-            String ch0 = String(visibleAndIr);
-            String ch1 = String(infrared);
-            String lightInformation = "Visible and IR: " + ch0 + ". IR: " + ch1;
-
-            // Blynk.virtualWrite(V3, lightInformation);
         }
     }
-    return lux;
+    return 0;
 }
 
 bool ESP32_LTR329::checkSensorLtr329() {
