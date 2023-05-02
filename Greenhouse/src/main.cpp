@@ -24,6 +24,8 @@
 #include <i2cdetect.h>
 
 #include "ESP32IntegratedSensor.h"
+#include "StepperMotorVent.h"
+
 
 // Sensors
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
@@ -73,19 +75,17 @@ ESP32IntegratedSensor esp32Sensor;
 // #define enablePin1 D9
 // #define pin1A D6
 
-/*Half-step setup
-  360deg - 1 revolution      =  512 sequences
-  180deg - 0.5 revolution    =  256 (compensated for rotational slop) -> 257
-  90deg  - 0.25 revolution   =  128 (test if compensation needed)
-  45deg  - 0.125 revolution  =  64
-*/
+
+
 // Stepper pins
 const int motorPin1 = 9;  // Blue
 const int motorPin2 = 10; // Pink
 const int motorPin3 = 11; // Yellow
 const int motorPin4 = 12; // Orange
+int motorSpeed = 7;
+int ventOpenAngle[4] = {45, 90, 180, 360};
+StepperMotorVent vent(ventOpenAngle[0], motorPin1, motorPin2, motorPin3, motorPin4, motorSpeed);
 
-int motorSpeed = 5;
 bool isWindowOpen = false;
 const float tempDiff = 1.9 - 0.7;
 
@@ -157,11 +157,7 @@ void updateBlynkWidgetLabel(char vp, String message);
 String printDateTime(const RtcDateTime &date);
 void rtcErrorCheckingAndUpdatingDate(); // Might need to fix a bit later. Currently copied from Rtc by Makuna example.
 
-void openWindow();
-void closeWindow();
-void turnMotorClockwise();
-void turnMotorCounterClockwise();
-void setMotorIdle();
+
 //
 // Forward declarations
 
@@ -280,7 +276,7 @@ void setup() {
 
     // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, showCurrentDateAndTime);
-    timer.setInterval(120000L, showCurrentWeather);
+    timer.setInterval(300000L, showCurrentWeather);
     timer.setInterval(5000L, setLightSensor);
     timer.setInterval(1000L, checkSensorData);
 }
@@ -333,8 +329,8 @@ void loop() {
     if (isWindowOpen == false) {
         if (temperature > (idealHighTemp - tempDiff)) { // This check is so that the windows should open before the current temp at bench level gets to high.
             isWindowOpen = true;
-            openWindow();
-            setMotorIdle();
+            vent.openWindow();
+            vent.setMotorIdle();
             updateBlynkWidgetColor(V4, "#87DE24");
             updateBlynkWidgetLabel(V4, "Vent: Open");
             Blynk.virtualWrite(V4, 1);
@@ -342,8 +338,8 @@ void loop() {
     } else {
         if (temperature < idealLowTemp + 3) {
             isWindowOpen = false;
-            closeWindow();
-            setMotorIdle();
+            vent.closeWindow();
+            vent.setMotorIdle();
             updateBlynkWidgetColor(V4, "#C70039");
             updateBlynkWidgetLabel(V4, "Vent: Closed");
             Blynk.virtualWrite(V4, 0);
@@ -507,126 +503,7 @@ void getLightSensorInfo() {
     }
 }
 
-void openWindow() {
-    for (int i = 0; i < 64; i++) {
-        turnMotorClockwise();
-    }
-}
 
-void closeWindow() {
-    for (int j = 0; j < 64; j++) {
-        turnMotorCounterClockwise();
-    }
-}
-
-void setMotorIdle() {
-    digitalWrite(motorPin4, LOW);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin1, LOW);
-}
-
-void turnMotorClockwise() {
-    // 1
-    digitalWrite(motorPin4, HIGH);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin1, LOW);
-    delay(motorSpeed);
-    // 2
-    digitalWrite(motorPin4, HIGH);
-    digitalWrite(motorPin3, HIGH);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin1, LOW);
-    delay(motorSpeed);
-    // 3
-    digitalWrite(motorPin4, LOW);
-    digitalWrite(motorPin3, HIGH);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin1, LOW);
-    delay(motorSpeed);
-    // 4
-    digitalWrite(motorPin4, LOW);
-    digitalWrite(motorPin3, HIGH);
-    digitalWrite(motorPin2, HIGH);
-    digitalWrite(motorPin1, LOW);
-    delay(motorSpeed);
-    // 5
-    digitalWrite(motorPin4, LOW);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin2, HIGH);
-    digitalWrite(motorPin1, LOW);
-    delay(motorSpeed);
-    // 6
-    digitalWrite(motorPin4, LOW);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin2, HIGH);
-    digitalWrite(motorPin1, HIGH);
-    delay(motorSpeed);
-    // 7
-    digitalWrite(motorPin4, LOW);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin1, HIGH);
-    delay(motorSpeed);
-    // 8
-    digitalWrite(motorPin4, HIGH);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin1, HIGH);
-    delay(motorSpeed);
-}
-
-void turnMotorCounterClockwise() {
-    // 1
-    digitalWrite(motorPin1, HIGH);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin4, LOW);
-    delay(motorSpeed);
-    // 2
-    digitalWrite(motorPin1, HIGH);
-    digitalWrite(motorPin2, HIGH);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin4, LOW);
-    delay(motorSpeed);
-    // 3
-    digitalWrite(motorPin1, LOW);
-    digitalWrite(motorPin2, HIGH);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin4, LOW);
-    delay(motorSpeed);
-    // 4
-    digitalWrite(motorPin1, LOW);
-    digitalWrite(motorPin2, HIGH);
-    digitalWrite(motorPin3, HIGH);
-    digitalWrite(motorPin4, LOW);
-    delay(motorSpeed);
-    // 5
-    digitalWrite(motorPin1, LOW);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin3, HIGH);
-    digitalWrite(motorPin4, LOW);
-    delay(motorSpeed);
-    // 6
-    digitalWrite(motorPin1, LOW);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin3, HIGH);
-    digitalWrite(motorPin4, HIGH);
-    delay(motorSpeed);
-    // 7
-    digitalWrite(motorPin1, LOW);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin4, HIGH);
-    delay(motorSpeed);
-    // 8
-    digitalWrite(motorPin1, HIGH);
-    digitalWrite(motorPin2, LOW);
-    digitalWrite(motorPin3, LOW);
-    digitalWrite(motorPin4, HIGH);
-    delay(motorSpeed);
-}
 
 void resetBlynkWidget(String color, String message) {
 

@@ -2,7 +2,8 @@
 #include <Arduino.h>
 
 float ESP32IntegratedSensor::readTemperature() {
-    return temperature = sht31.readTemperature() - getTemperatureCompensation();
+    //return temperature = sht31.readTemperature() - getTemperatureCompensation();
+    return temperature = sht31.readTemperature();
 }
 
 float ESP32IntegratedSensor::readHumidity() {
