@@ -43,7 +43,7 @@ bool ESP32IntegratedSensor::validateNumberReading(float readings) {
     }
 }
 
-bool ESP32IntegratedSensor::errorCheckTemperatureHumiditySensor() {
+bool ESP32IntegratedSensor::checkSensorSht31() {
     if (!sht31.begin(0x44)) { // default i2c address
         return true;
         while (1)

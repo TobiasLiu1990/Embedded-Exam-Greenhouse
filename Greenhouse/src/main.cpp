@@ -43,7 +43,7 @@ ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 
 RtcDS3231<TwoWire> Rtc(Wire);
 ESP32IntegratedSensor esp32Sensor;
-ESP32_LTR329 ltr329;
+ESP32_LTR329 ltr;
 
 //---------------------L293D
 // Might add fan for later use if possible
@@ -87,6 +87,8 @@ Status greenhouseStatus;
 String colorGreen = "#228B22";
 String colorOrange = "#FFC300";
 String colorRed = "#C70039";
+String colorWhite = "#FFFFFF";
+
 
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
@@ -106,7 +108,7 @@ float upperTemperatureMargin = idealHighTemp - esp32Sensor.getUpperTemperatureMa
 float lowerTemperatureMargin = idealLowTemp + esp32Sensor.getLowerTemperatureMargin();
 
 // Forward declarations
-void errorCheckingSensors();
+void esp32SensorStartupCheck();
 void rtcErrorCheckingAndUpdatingDate();
 
 void fruitStateTransition();
@@ -119,8 +121,6 @@ void showCurrentWeather();
 void checkSensorData();
 void checkTemperatureStatus();
 void checkHumidityStatus();
-// void setLightSensor();
-// void getLightSensorInfo();
 
 void uploadTemperatureToBlynk();
 void uploadHumidityToBlynk();
@@ -218,7 +218,7 @@ void setup() {
     pinMode(motorPin4, OUTPUT);
 
     rtcErrorCheckingAndUpdatingDate(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
-    errorCheckingSensors();
+    esp32SensorStartupCheck();
 
     WiFi.begin(ssid, password);
     delay(100);
@@ -307,12 +307,12 @@ void loop() {
 }
 
 void initBlynk() {
-    currentState = Banana; // Will be set to Bananas by default in Setup()
-    stateNumber = 0;       // 0 will default to Bananas
-
-    String color = "#FFFFFF";
+    //On startup/reset - need to use fresh data.
+    //Setting default to Banana.
     String message = "Loading status...";
-    resetBlynkWidget(color, message);
+    resetBlynkWidget(colorWhite, message);
+    stateNumber = 0;
+    fruitStateTransition();
     updateFruitStateConditions();
 }
 
@@ -346,14 +346,11 @@ void fruitStateTransition() {
     switch (stateNumber) {
     case 0:
         currentState = Banana;
-        ltr329.setGain(LTR3XX_GAIN_4); // Banana - GAIN_4 = 0.25 lux - 16k lux
-        Serial.println("Banana state currentDateAndTime");
+        ltr.ltr329.setGain(LTR3XX_GAIN_4); // Banana - GAIN_4 = 0.25 lux - 16k lux
         break;
     case 1:
         currentState = Pineapple;
-        ltr329.setGain(LTR3XX_GAIN_1); // Pineapple - GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
-
-        Serial.println("pineapple state currentDateAndTime");
+        ltr.ltr329.setGain(LTR3XX_GAIN_1); // Pineapple - GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
         break;
     }
 }
@@ -398,6 +395,14 @@ void checkHumidityStatus() {
     uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);
 }
 
+/*
+    Get light sensor converted to lux.
+    upload to blynk.
+
+*/
+
+
+
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
     String BlynkStatusWidgetMessage = "";
     String BlynkStatusWidgetColor = "";
@@ -427,30 +432,6 @@ void uploadTemperatureToBlynk() {
 
 void uploadHumidityToBlynk() {
     Blynk.virtualWrite(V2, humidity);
-}
-
-void setLightSensor() {
-
-    ltr329.setGain(LTR3XX_GAIN_4);
-    ltr329.setIntegrationTime(LTR3XX_INTEGTIME_250); // Amount of time available to obtain a measurement during which there is essentially no change in the level of the signal
-    ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);  // Number of measurement values generated per second
-
-    getLightSensorInfo();
-}
-
-uint16_t visibleAndIr; // Should maybe only measure visible for plants?
-uint16_t infrared;     // IR produces heat but does not help photosynthesis...
-void getLightSensorInfo() {
-    if (ltr329.newDataAvailable()) {
-        bool data = ltr329.readBothChannels(visibleAndIr, infrared); // 1st param = ch0, 2nd param = ch1. Reads both 16-bit channels at once. Put data in argument pointers.
-        if (data) {
-            String ch0 = String(visibleAndIr);
-            String ch1 = String(infrared);
-            String lightInformation = "Visible and IR: " + ch0 + ". IR: " + ch1;
-
-            Blynk.virtualWrite(V3, lightInformation);
-        }
-    }
 }
 
 void resetBlynkWidget(String color, String message) {
@@ -506,18 +487,19 @@ void showCurrentWeather() {
     openWeathermap.disconnectToOpenWeatherMap();
 }
 
-void errorCheckingSensors() {
-    if (esp32Sensor.errorCheckTemperatureHumiditySensor()) {
+void esp32SensorStartupCheck() {
+    if (esp32Sensor.checkSensorSht31()) {
         Serial.println("SHT31 - Cannot find sensor");
         updateBlynkWidgetLabel(V1, "SHT31 sensor error");
         updateBlynkWidgetLabel(V2, "SHT31 sensor error");
     };
 
-    if (!ltr329.begin()) {
+    if (ltr.checkSensorLtr329()) {
         Serial.println("LTR329 - Cannot find sensor");
-        while (1)
-            yield();
+        updateBlynkWidgetLabel(V3, "LTR329 sensor error");
     }
+
+
 }
 
 void rtcErrorCheckingAndUpdatingDate() {

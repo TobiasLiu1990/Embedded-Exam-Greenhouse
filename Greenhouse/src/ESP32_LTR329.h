@@ -12,5 +12,8 @@ public:
         ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);
     }
 
-    void ESP32_LTR329::setGain(ltr329_gain_t gain);
+    void getLightSensorInfo();
+    bool checkSensorLtr329();
+
+
 };

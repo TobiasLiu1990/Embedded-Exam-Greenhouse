@@ -21,5 +21,5 @@ public:
     float getLowerTemperatureMargin();
 
     bool validateNumberReading(float readings);
-    bool errorCheckTemperatureHumiditySensor();
+    bool checkSensorSht31();
 };
