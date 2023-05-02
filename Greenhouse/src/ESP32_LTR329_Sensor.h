@@ -5,7 +5,7 @@ class ESP32_LTR329_Sensor {
 public:
     Adafruit_LTR329 ltr329;
     ltr329_gain_t gain;
-    
+
     uint16_t visibleAndIr;
     uint16_t infrared;
 

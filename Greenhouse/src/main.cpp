@@ -3,17 +3,17 @@
   https://htmlcolorcodes.com/colors/shades-of-green/
 */
 
+#include "ConnectOpenWeathermap.h"
+#include "ESP32_LTR329_Sensor.h"
+#include "ESP32_SHT31_Sensor.h"
+#include "StepperMotorVent.h"
 #include <Arduino.h>
+#include <BlynkSimpleEsp32.h>
 #include <HTTPClient.h>
 #include <RtcDS3231.h>
-#include <Wire.h>
-#include "ConnectOpenWeathermap.h"
-#include "ESP32_SHT31_Sensor.h"
-#include "ESP32_LTR329_Sensor.h"
-#include "StepperMotorVent.h"
-#include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include <Wire.h>
 
 // Wifi
 const char *ssid = "Venti_2.4G";
@@ -25,7 +25,7 @@ const char *password = "NikitaBoy";
 #define BLYNK_AUTH_TOKEN "90qZjiZBUZwmDULPB9tlfsDqq3fXuoZf"
 #define BLYNK_PRINT Serial
 
-BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
+BlynkTimer timer;               // Each Blynk timer can run up to 16 instances.
 char auth[] = BLYNK_AUTH_TOKEN; // Blynk token
 char ssidBlynk[] = "Venti_2.4G";
 char pass[] = "NikitaBoy";
@@ -96,11 +96,11 @@ float upperTemperatureMargin = idealHighTemp - sht31.getUpperTemperatureMargin()
 float lowerTemperatureMargin = idealLowTemp + sht31.getLowerTemperatureMargin();
 
 String colorGreen = "#228B22";
-String colorGreen2 = "";
+String colorGreen2 = "#87DE24";
 String colorOrange = "#FFC300";
 String colorRed = "#C70039";
 String colorWhite = "#FFFFFF";
-String colorYellow = "";
+String colorYellow = "#E6D22A";
 
 // Forward declarations
 void sht31StartupCheck();
@@ -249,8 +249,8 @@ void loop() {
         if (sht31.validateNumberReading(temperature)) {
             uploadTemperatureToBlynk();
             temperatureReady = true;
-            //Serial.print(F("Temperature: ")); // debugging for now
-            //Serial.println(temperature);      // debugging for now
+            // Serial.print(F("Temperature: ")); // debugging for now
+            // Serial.println(temperature);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read temperature ")); // debugging for now
         }
@@ -258,8 +258,8 @@ void loop() {
         if (sht31.validateNumberReading(humidity)) {
             uploadHumidityToBlynk();
             humidityReady = true;
-           // Serial.print(F("Humidity: ")); // debugging for now
-            //Serial.println(humidity);      // debugging for now
+            // Serial.print(F("Humidity: ")); // debugging for now
+            // Serial.println(humidity);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read Humidity")); // debugging for now
         }
@@ -294,8 +294,8 @@ void loop() {
 }
 
 void initBlynk() {
-    //On startup/reset - need to use fresh data.
-    //Setting default to Banana.
+    // On startup/reset - need to use fresh data.
+    // Setting default to Banana.
     String message = "Loading status...";
     resetBlynkWidget(colorWhite, message);
     stateNumber = 0;
@@ -303,12 +303,22 @@ void initBlynk() {
     updateFruitStateConditions();
 }
 
+void fruitStateTransition() {
+    switch (stateNumber) {
+    case 0:
+        currentState = Banana;
+        break;
+    case 1:
+        currentState = Pineapple;
+        break;
+    }
+}
+
 void updateFruitStateConditions() {
     if (currentState == Banana) {
+        ltr.ltr329.setGain(LTR3XX_GAIN_4); // GAIN_4 = 0.25 - 16k
         updateBlynkWidgetLabel(V0, "Current target: Bananas");
-        updateBlynkWidgetColor(V0, "#E6D22A"); // Yellow
-
-        Serial.println("Changing to Banana variables");
+        updateBlynkWidgetColor(V0, colorYellow);
         minTemp = 15;
         maxTemp = 30;
         idealLowTemp = 20.25;
@@ -316,29 +326,15 @@ void updateFruitStateConditions() {
         idealLowHumidity = 50;
         idealHighHumidity = 100;
     } else if (currentState == Pineapple) {
+        ltr.ltr329.setGain(LTR3XX_GAIN_1); // GAIN_1 = 1 - 64k (less sensitive reading but can reach above 40k)
         updateBlynkWidgetLabel(V0, "Current target: Pineapples");
-        updateBlynkWidgetColor(V0, "#87DE24"); // Green-ish
-
-        Serial.println("Changing to Pineapple variables");
+        updateBlynkWidgetColor(V0, colorGreen2);
         minTemp = 10;
         maxTemp = 35;
         idealLowTemp = 21.5;
         idealHighTemp = 31;
         idealLowHumidity = 40;
         idealHighHumidity = 60;
-    }
-}
-
-void fruitStateTransition() {
-    switch (stateNumber) {
-    case 0:
-        currentState = Banana;
-        ltr.ltr329.setGain(LTR3XX_GAIN_4); // Banana - GAIN_4 = 0.25 lux - 16k lux
-        break;
-    case 1:
-        currentState = Pineapple;
-        ltr.ltr329.setGain(LTR3XX_GAIN_1); // Pineapple - GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
-        break;
     }
 }
 
@@ -382,27 +378,6 @@ void checkHumidityStatus() {
     uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);
 }
 
-/*
-    Get light sensor converted to lux.
-    upload to blynk.
-
-*/
-
-void getLux() {
-    unsigned int lux;
-    lux = ltr.getFromLightSensor(lux);
-    Serial.print("Lux: ");
-    Serial.println(lux);
-
-    if (lux == 0) {
-        Serial.println("Could not read lux");
-    } else {
-        Blynk.virtualWrite(V3, lux);
-    }
-}
-
-
-
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
     String BlynkStatusWidgetMessage = "";
     String BlynkStatusWidgetColor = "";
@@ -426,32 +401,17 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
     updateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
 
-void uploadTemperatureToBlynk() {
-    Blynk.virtualWrite(V1, temperature);
-}
+void getLux() {
+    unsigned int lux;
+    lux = ltr.getFromLightSensor(lux);
+    Serial.print("Lux: ");
+    Serial.println(lux);
 
-void uploadHumidityToBlynk() {
-    Blynk.virtualWrite(V2, humidity);
-}
-
-void resetBlynkWidget(String color, String message) {
-    updateBlynkWidgetColor(V0, color);     // V0 - Fruit State widget
-    updateBlynkWidgetColor(V8, color);     // V8 - Greenhouse Humidity color
-    updateBlynkWidgetContent(V8, message); // V8 - Greenhouse Humidity message
-    updateBlynkWidgetColor(V9, color);     // V9 - Greenhouse Temperature color
-    updateBlynkWidgetContent(V9, message); // V9 - Greenhouse Temperature message
-}
-
-void updateBlynkWidgetLabel(char vp, String message) {
-    Blynk.setProperty(vp, "label", message);
-}
-
-void updateBlynkWidgetContent(char vp, String message) {
-    Blynk.virtualWrite(vp, message);
-}
-
-void updateBlynkWidgetColor(char vp, String color) {
-    Blynk.setProperty(vp, "color", color);
+    if (lux == 0) {
+        Serial.println("Could not read lux");
+    } else {
+        Blynk.virtualWrite(V3, lux);
+    }
 }
 
 void showCurrentDateAndTime() {
@@ -487,6 +447,34 @@ void showCurrentWeather() {
     openWeathermap.disconnectToOpenWeatherMap();
 }
 
+void uploadTemperatureToBlynk() {
+    Blynk.virtualWrite(V1, temperature);
+}
+
+void uploadHumidityToBlynk() {
+    Blynk.virtualWrite(V2, humidity);
+}
+
+void updateBlynkWidgetLabel(char vp, String message) {
+    Blynk.setProperty(vp, "label", message);
+}
+
+void updateBlynkWidgetContent(char vp, String message) {
+    Blynk.virtualWrite(vp, message);
+}
+
+void updateBlynkWidgetColor(char vp, String color) {
+    Blynk.setProperty(vp, "color", color);
+}
+
+void resetBlynkWidget(String color, String message) {
+    updateBlynkWidgetColor(V0, color);     // V0 - Fruit State widget
+    updateBlynkWidgetColor(V8, color);     // V8 - Greenhouse Humidity color
+    updateBlynkWidgetContent(V8, message); // V8 - Greenhouse Humidity message
+    updateBlynkWidgetColor(V9, color);     // V9 - Greenhouse Temperature color
+    updateBlynkWidgetContent(V9, message); // V9 - Greenhouse Temperature message
+}
+
 void sht31StartupCheck() {
     if (sht31.checkSensorSht31()) {
         Serial.println("SHT31 - Cannot find sensor");
@@ -498,8 +486,6 @@ void sht31StartupCheck() {
         Serial.println("LTR329 - Cannot find sensor");
         updateBlynkWidgetLabel(V3, "LTR329 sensor error");
     }
-
-
 }
 
 void rtcErrorCheckingAndUpdatingDate() {
