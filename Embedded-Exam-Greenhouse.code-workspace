@@ -11,7 +11,8 @@
 	"settings": {
 		"files.associations": {
 			"random": "cpp",
-			"cmath": "cpp"
+			"cmath": "cpp",
+			"*.tcc": "cpp"
 		}
 	}
 }

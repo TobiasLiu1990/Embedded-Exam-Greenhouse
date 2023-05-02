@@ -1,43 +1,19 @@
 #include "ESP32IntegratedSensor.h"
 #include <Arduino.h>
 
-void ESP32IntegratedSensor::integratedSensorReadings(bool temperatureReady, bool humidityReady) {
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
-        if (readTemperature()) {
-            // UploadTemperatureToBlynk();
-            temperatureReady = true;
-        }
-        if (readHumidity()) {
-            // UploadHumidityToBlynk();
-            humidityReady = true;
-        }
-        previousMillisSensor = currentMillis;
-    }
+float ESP32IntegratedSensor::readTemperature() {
+    return temperature = sht31.readTemperature() - getTemperatureCompensation();
 }
 
-bool ESP32IntegratedSensor::readTemperature() {
-    temperature = sht31.readTemperature() - temperatureDifference;
-
-    if (!isnan(temperature)) {
-        Serial.print(F("Temperature: "));
-        Serial.println(temperature);
-        return true;
-    } else {
-        Serial.println(F("Error, cannot read temperature "));
-        return false;
-    }
+float ESP32IntegratedSensor::readHumidity() {
+    return humidity = sht31.readHumidity() - getHumidityCompensation();
 }
 
-bool ESP32IntegratedSensor::readHumidity() {
-    humidity = sht31.readHumidity() - humidityDifference;
 
-    if (!isnan(humidity)) {
-        Serial.print(F("Humidity: "));
-        Serial.println(humidity);
+bool ESP32IntegratedSensor::validateNumberReading(float readings) {
+    if (!isnan(readings)) {
         return true;
     } else {
-        Serial.println(F("Error, cannot read Humidity"));
         return false;
     }
 }
@@ -45,7 +21,7 @@ bool ESP32IntegratedSensor::readHumidity() {
 bool ESP32IntegratedSensor::errorCheckTemperatureSensor() {
     String checkSensors = "";
 
-    if (!sht31.begin(0x44)) { // default i2c address
+    if (!sht31.begin(0x44)) {       //default i2c address
         return true;
         while (1)
             yield();
@@ -53,10 +29,22 @@ bool ESP32IntegratedSensor::errorCheckTemperatureSensor() {
     return false;
 }
 
+// Value is a very simple calculation after running ESP32 and DHT11 indoor on a table for 15min each.
+//  33.99 - 24.80 (ESP32 - DHT11)
+float ESP32IntegratedSensor::getTemperatureCompensation() {
+    return 9.19;
+}
+
+// Value is a very simple calculation after running ESP32 and DHT11 indoor on a table for 15min each.
+//  15.89 - 11 (ESP32 - DHT11)
+float ESP32IntegratedSensor::getHumidityCompensation() {
+    return 4.89;
+}
+
+
+
 
 /*
-
-
 MOVE TO LIGHT SENSOR CLASS LATER
 
 

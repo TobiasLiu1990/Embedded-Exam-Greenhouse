@@ -27,8 +27,8 @@
 
 // Sensors
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
-#include "Adafruit_SHT31.h"         //Temperature and humidity sensor
-//  Later maybe add accelerometer to check if it has been flipped (for light sensor)
+// #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
+//   Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Blynk
 #include <BlynkSimpleEsp32.h>
@@ -55,7 +55,7 @@ char pass[] = "NikitaBoy";       // Wifi pw
 StaticJsonDocument<1024> doc;
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 
-Adafruit_SHT31 sht31 = Adafruit_SHT31();
+// Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
 RtcDS3231<TwoWire> Rtc(Wire);
 
@@ -68,7 +68,6 @@ ltr329_integrationtime_t bananaIntegTime = LTR3XX_INTEGTIME_200;
 ltr329_measurerate_t bananaMeasurementRate = LTR3XX_MEASRATE_200;
 
 ESP32IntegratedSensor esp32Sensor;
-
 
 //---------------------L293D
 // Might add fan for later use if possible
@@ -120,10 +119,10 @@ bool isConnectedToBlynk = false;
 
 String todaysDateAndWeather = "";
 
-const float temperatureDifference = 33.88 - 24.40; // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
-const float humidityDifference = 15.89 - 11;       // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
-float temperature = 0;
-float humidity = 0;
+// float temperature = 0;
+// float humidity = 0;
+// const float temperatureDifference = 33.88 - 24.40; // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
+// const float humidityDifference = 15.89 - 11;       // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
 float minTemp;
 float maxTemp;
 float idealLowTemp;
@@ -141,9 +140,9 @@ void showCurrentWeather();
 String getWeatherInfo();
 
 String errorCheckingSensors();
-//bool ReadTemperature();
+// bool readTemperature();
 void uploadTemperatureToBlynk();
-//bool ReadHumidity();
+// bool readHumidity();
 void uploadHumidityToBlynk();
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
 
@@ -293,25 +292,41 @@ void setup() {
     timer.setInterval(1000L, checkSensorData);
 }
 
+float temperature;
+float humidity;
+bool temperatureReady;
+bool humidityReady;
 
-
-bool temperatureReady = false;
-bool humidityReady = false;
 void loop() {
     Blynk.run();
     timer.run();
 
-
     unsigned long currentMillis = millis();
+
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
-        
-        if (ReadTemperature()) {
+        temperature = esp32Sensor.readTemperature();
+        humidity = esp32Sensor.readHumidity();
+        temperatureReady = false;
+        humidityReady = false;
+
+        if (esp32Sensor.validateNumberReading(temperature)) {
             uploadTemperatureToBlynk();
             temperatureReady = true;
+
+            Serial.print(F("Temperature: "));   // debugging for now
+            Serial.println(temperature);        // debugging for now
+        } else {
+            Serial.println(F("Error, cannot read temperature "));   // debugging for now
         }
-        if (ReadHumidity()) {
+
+        if (esp32Sensor.validateNumberReading(humidity)) {
             uploadHumidityToBlynk();
             humidityReady = true;
+
+            Serial.print(F("Humidity: "));      // debugging for now
+            Serial.println(humidity);           // debugging for now
+        } else {
+            Serial.println(F("Error, cannot read Humidity"));   // debugging for now
         }
         previousMillisSensor = currentMillis;
     }
@@ -328,6 +343,7 @@ void loop() {
             openWindow();
             setMotorIdle();
             updateBlynkWidgetColor(V4, "#87DE24");
+            updateBlynkWidgetLabel(V4, "Vent: Open");
             Blynk.virtualWrite(V4, 1);
         }
     } else {
@@ -336,6 +352,7 @@ void loop() {
             closeWindow();
             setMotorIdle();
             updateBlynkWidgetColor(V4, "#C70039");
+            updateBlynkWidgetLabel(V4, "Vent: Closed");
             Blynk.virtualWrite(V4, 0);
         }
     }
@@ -465,7 +482,8 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
     updateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
 
-bool ReadTemperature() {
+/*
+bool readTemperature() {
     temperature = sht31.readTemperature() - temperatureDifference;
 
     if (!isnan(temperature)) {
@@ -477,12 +495,14 @@ bool ReadTemperature() {
         return false;
     }
 }
+*/
 
 void uploadTemperatureToBlynk() {
     Blynk.virtualWrite(V1, temperature);
 }
 
-bool ReadHumidity() {
+/*
+bool readHumidity() {
     humidity = sht31.readHumidity() - humidityDifference;
 
     if (!isnan(humidity)) {
@@ -494,6 +514,7 @@ bool ReadHumidity() {
         return false;
     }
 }
+*/
 
 void uploadHumidityToBlynk() {
     Blynk.virtualWrite(V2, humidity);
@@ -753,9 +774,8 @@ String errorCheckingSensors() {
 
     if (esp32Sensor.errorCheckTemperatureSensor()) {
         checkSensors = "SHT31 - Cannot find sensor";
-        //updateBlynkWidgetLabel(V1, "Temperature sensor error");
+        // updateBlynkWidgetLabel(V1, "Temperature sensor error");
     };
-
 
     if (!ltr329.begin()) {
         checkSensors += "LTR329 - Cannot find sensor";
