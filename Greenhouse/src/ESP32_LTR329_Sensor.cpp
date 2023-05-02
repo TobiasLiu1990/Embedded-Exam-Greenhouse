@@ -29,23 +29,34 @@ unsigned int ESP32_LTR329_Sensor::getFromLightSensor(unsigned int lux) {
             Serial.print("ch1: ");
             Serial.print(infrared);
             Serial.println();
+            Serial.print("gainCalc: ");
+            Serial.println(gainCalc);
+            Serial.print("integCalc: ");
+            Serial.println(integTimeCalc);
 
             if (ratio < 0.45) {
                 Serial.println("ratio 1");
-                return ((1.7743 * visibleAndIr) + (1.1059 * infrared));
+                //lux = ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / gainCalc / integTimeCalc;     // gain 4 (banana)
+                lux = ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / 1 / integTimeCalc;       // gain 1 (ananas)
             } else if (ratio < 0.64 && ratio >= 0.45) {
                 Serial.println("ratio 2");
-                return ((4.2785 * visibleAndIr) - (1.9548 * infrared));
+                lux = ((4.2785 * visibleAndIr) - (1.9548 * infrared)) / gainCalc / integTimeCalc;
             } else if (ratio < 0.85 && ratio >= 0.64) {
                 Serial.println("ratio 3");
-                return ((0.5926 * visibleAndIr) + (0.1185 * infrared));
+                lux = ((0.5926 * visibleAndIr) + (0.1185 * infrared)) / gainCalc / integTimeCalc;
             } else {
-                return 0;
+                lux = 0;
             }
         }
     }
-    return 0;
+    return lux;
 }
+
+void ESP32_LTR329_Sensor::setGainForLuxCalculation(uint calc) {
+    gainCalc = calc;
+}
+
+
 
 bool ESP32_LTR329_Sensor::checkSensorLtr329() {
     if (!ltr329.begin()) {

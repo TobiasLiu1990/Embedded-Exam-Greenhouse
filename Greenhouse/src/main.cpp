@@ -317,6 +317,10 @@ void fruitStateTransition() {
 void updateFruitStateConditions() {
     if (currentState == Banana) {
         ltr.ltr329.setGain(LTR3XX_GAIN_4); // GAIN_4 = 0.25 - 16k
+        ltr.ltr329.setIntegrationTime(LTR3XX_INTEGTIME_400);
+        ltr.ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);
+        //ltr.setGainForLuxCalculation(4);
+
         updateBlynkWidgetLabel(V0, "Current target: Bananas");
         updateBlynkWidgetColor(V0, colorYellow);
         minTemp = 15;
@@ -326,7 +330,12 @@ void updateFruitStateConditions() {
         idealLowHumidity = 50;
         idealHighHumidity = 100;
     } else if (currentState == Pineapple) {
-        ltr.ltr329.setGain(LTR3XX_GAIN_1); // GAIN_1 = 1 - 64k (less sensitive reading but can reach above 40k)
+        // ltr.ltr329.setGain(LTR3XX_GAIN_1); // GAIN_1 = 1 - 64k (less sensitive reading but can reach above 40k)
+        ltr.ltr329.setGain(LTR3XX_GAIN_1); // GAIN_4 = 0.25 - 16k
+        ltr.ltr329.setIntegrationTime(LTR3XX_INTEGTIME_400);
+        ltr.ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);
+        //ltr.setGainForLuxCalculation(1);
+
         updateBlynkWidgetLabel(V0, "Current target: Pineapples");
         updateBlynkWidgetColor(V0, colorGreen2);
         minTemp = 10;
