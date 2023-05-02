@@ -12,7 +12,7 @@
 #include "ConnectOpenWeathermap.h"
 #include "ESP32IntegratedSensor.h"
 #include "StepperMotorVent.h"
-// #include "RTCDateAndTime.h"
+//#include "RTCDateAndTime.h"
 #include "Adafruit_LTR329_LTR303.h" //Light sensor. 16bit light (infrared + visible + IR spectrum) 0 - 65k lux.
 // #include "Adafruit_SHT31.h"         //Temperature and humidity sensor
 //   Later maybe add accelerometer to check if it has been flipped (for light sensor)
@@ -25,6 +25,7 @@ const char *password = "NikitaBoy";
 #include <BlynkSimpleEsp32.h>
 #include <WiFi.h>
 #include <WiFiClient.h>
+#include "BlynkHelper.h"
 
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
 #define BLYNK_TEMPLATE_NAME "Greenhouse"
@@ -113,7 +114,8 @@ float idealLowTemp;
 float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
-
+float upperTemperatureMargin = idealHighTemp - esp32Sensor.getUpperTemperatureMargin();
+float lowerTemperatureMargin = idealLowTemp + esp32Sensor.getLowerTemperatureMargin();
 
 // Forward declarations
 void errorCheckingSensors();
@@ -252,7 +254,7 @@ void setup() {
 
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, showCurrentDateAndTime);
-    timer.setInterval(300000L, showCurrentWeather);
+    timer.setInterval(300000L, showCurrentWeather);         //every 5mins
     timer.setInterval(5000L, setLightSensor);
     timer.setInterval(1000L, checkSensorData);
 }
@@ -297,7 +299,7 @@ void loop() {
     }
 
     if (isWindowOpen == false) {
-        if (temperature > (idealHighTemp - esp32Sensor.getUpperTemperatureMargin())) { // This check is so that the windows should open before the current temp at bench level gets to high.
+        if (temperature > (upperTemperatureMargin)) { // This check is so that the windows should open before the current temp at bench level gets to high.
             isWindowOpen = true;
             vent.openWindow();
             vent.setMotorIdle();
@@ -306,7 +308,7 @@ void loop() {
             Blynk.virtualWrite(V4, 1);
         }
     } else {
-        if (temperature < idealLowTemp + esp32Sensor.getLowerTemperatureMargin()) {
+        if (temperature < lowerTemperatureMargin) {
             isWindowOpen = false;
             vent.closeWindow();
             vent.setMotorIdle();
@@ -461,7 +463,6 @@ void getLightSensorInfo() {
 }
 
 void resetBlynkWidget(String color, String message) {
-
     updateBlynkWidgetColor(V0, color);     // V0 - Fruit State widget
     updateBlynkWidgetColor(V8, color);     // V8 - Greenhouse Humidity color
     updateBlynkWidgetContent(V8, message); // V8 - Greenhouse Humidity message
@@ -480,16 +481,6 @@ void updateBlynkWidgetContent(char vp, String message) {
 void updateBlynkWidgetColor(char vp, String color) {
     Blynk.setProperty(vp, "color", color);
 }
-
-/*
-    WANT
-    TO
-    FIX
-    WEATHER
-    METHODS
-    LATER
-    FIND BETTER WAY TO DO THIS
-*/
 
 void showCurrentDateAndTime() {
     String currentDateAndTime = printDateTime(Rtc.GetDateTime());
