@@ -1,7 +1,7 @@
-#include "SensorInfo.h"
+#include "ESP32IntegratedSensor.h"
 #include <Arduino.h>
 
-void SensorInfo::integratedSensorReadings(bool temperatureReady, bool humidityReady) {
+void ESP32IntegratedSensor::integratedSensorReadings(bool temperatureReady, bool humidityReady) {
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
         if (readTemperature()) {
@@ -16,7 +16,7 @@ void SensorInfo::integratedSensorReadings(bool temperatureReady, bool humidityRe
     }
 }
 
-bool SensorInfo::readTemperature() {
+bool ESP32IntegratedSensor::readTemperature() {
     temperature = sht31.readTemperature() - temperatureDifference;
 
     if (!isnan(temperature)) {
@@ -29,7 +29,7 @@ bool SensorInfo::readTemperature() {
     }
 }
 
-bool SensorInfo::readHumidity() {
+bool ESP32IntegratedSensor::readHumidity() {
     humidity = sht31.readHumidity() - humidityDifference;
 
     if (!isnan(humidity)) {
@@ -42,21 +42,24 @@ bool SensorInfo::readHumidity() {
     }
 }
 
-String SensorInfo::errorCheckingSensors() {
+bool ESP32IntegratedSensor::errorCheckTemperatureSensor() {
     String checkSensors = "";
 
     if (!sht31.begin(0x44)) { // default i2c address
-        checkSensors = "SHT31 - Cannot find sensor";
-        //UpdateBlynkWidgetLabel(V1, "Temperature sensor error");
+        return true;
         while (1)
             yield();
     }
-    return checkSensors;
+    return false;
 }
 
 
 /*
+
+
 MOVE TO LIGHT SENSOR CLASS LATER
+
+
     if (!ltr329.begin()) {
         checkSensors += "LTR329 - Cannot find sensor";
         //UpdateBlynkWidgetLabel(V2, "Humidity sensor error");

@@ -1,7 +1,7 @@
 #include "Adafruit_SHT31.h" //Temperature and humidity sensor
 #include <Arduino.h>
 
-class SensorInfo {
+class ESP32IntegratedSensor {
 private:
     Adafruit_SHT31 sht31;
     float temperature;
@@ -12,7 +12,7 @@ private:
     unsigned long previousMillisSensor;
 
 public:
-    SensorInfo() {
+    ESP32IntegratedSensor() {
         sht31 = Adafruit_SHT31();
         temperature = 0;
         humidity = 0;
@@ -25,5 +25,5 @@ public:
     void integratedSensorReadings(bool temperatureReady, bool humidityReady);
     bool readTemperature();
     bool readHumidity();
-    String errorCheckingSensors();
+    bool errorCheckTemperatureSensor();
 };
