@@ -3,36 +3,36 @@
   https://htmlcolorcodes.com/colors/shades-of-green/
 */
 
-#include <Adafruit_DotStar.h>
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <RtcDS3231.h>
 #include <Wire.h>
-#include <BlynkSimpleEsp32.h>
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include "ConnectOpenWeathermap.h"
-#include "ESP32_SHT31_Sensor.h"
-#include "ESP32_LTR329_Sensor.h"
-#include "StepperMotorVent.h"
 
+#include "ConnectOpenWeathermap.h"
+#include "ESP32IntegratedSensor.h"
+#include "ESP32_LTR329.h"
+#include "StepperMotorVent.h"
+//   Later maybe add accelerometer to check if it has been flipped (for light sensor)
 
 // Wifi
 const char *ssid = "Venti_2.4G";
 const char *password = "NikitaBoy";
 
 // Blynk
-
+#include <BlynkSimpleEsp32.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
 
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
 #define BLYNK_TEMPLATE_NAME "Greenhouse"
 #define BLYNK_AUTH_TOKEN "90qZjiZBUZwmDULPB9tlfsDqq3fXuoZf"
 #define BLYNK_PRINT Serial
 
-BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 char auth[] = BLYNK_AUTH_TOKEN; // Blynk token
 char ssidBlynk[] = "Venti_2.4G";
 char pass[] = "NikitaBoy";
+
+BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 
 // Openweathermap
 const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,no&APPID=";
@@ -41,8 +41,8 @@ const String metric = "&units=metric";
 ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 
 RtcDS3231<TwoWire> Rtc(Wire);
-ESP32_SHT31_Sensor esp32Sensor;
-ESP32_LTR329_Sensor ltr;
+ESP32IntegratedSensor esp32Sensor;
+ESP32_LTR329 ltr;
 
 //---------------------L293D
 // Might add fan for later use if possible
@@ -87,8 +87,6 @@ String colorGreen = "#228B22";
 String colorOrange = "#FFC300";
 String colorRed = "#C70039";
 String colorWhite = "#FFFFFF";
-String colorYellow = "#E6D22A";
-String colorGreen2 = "#87DE24";
 
 
 bool isStateChanged = false;
@@ -110,7 +108,7 @@ float lowerTemperatureMargin = idealLowTemp + esp32Sensor.getLowerTemperatureMar
 
 // Forward declarations
 void esp32SensorStartupCheck();
-void rtcCheckForErrors();
+void rtcErrorCheckingAndUpdatingDate();
 
 void fruitStateTransition();
 void updateFruitStateConditions();
@@ -158,6 +156,11 @@ BLYNK_WRITE(V4) {
 }
 
 BLYNK_CONNECTED() {
+    // Change Web Link Button message to "Congratulations!"
+    // Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
+    // Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
+    // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
+
     Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
     isConnectedToBlynk = true;
 }
@@ -214,7 +217,7 @@ void setup() {
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
 
-    rtcCheckForErrors(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
+    rtcErrorCheckingAndUpdatingDate(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     esp32SensorStartupCheck();
 
     WiFi.begin(ssid, password);
@@ -257,6 +260,7 @@ void loop() {
         if (esp32Sensor.validateNumberReading(temperature)) {
             uploadTemperatureToBlynk();
             temperatureReady = true;
+
             //Serial.print(F("Temperature: ")); // debugging for now
             //Serial.println(temperature);      // debugging for now
         } else {
@@ -266,6 +270,7 @@ void loop() {
         if (esp32Sensor.validateNumberReading(humidity)) {
             uploadHumidityToBlynk();
             humidityReady = true;
+
            // Serial.print(F("Humidity: ")); // debugging for now
             //Serial.println(humidity);      // debugging for now
         } else {
@@ -290,7 +295,7 @@ void loop() {
             Blynk.virtualWrite(V4, 1);
         }
     } else {
-        if (temperature < lowerTemperatureMargin) { // Same as above but for lower end
+        if (temperature < lowerTemperatureMargin) {
             isWindowOpen = false;
             vent.closeWindow();
             vent.setMotorIdle();
@@ -311,6 +316,32 @@ void initBlynk() {
     updateFruitStateConditions();
 }
 
+void updateFruitStateConditions() {
+    if (currentState == Banana) {
+        updateBlynkWidgetLabel(V0, "Current target: Bananas");
+        updateBlynkWidgetColor(V0, "#E6D22A"); // Yellow
+
+        Serial.println("Changing to Banana variables");
+        minTemp = 15;
+        maxTemp = 30;
+        idealLowTemp = 20.25;
+        idealHighTemp = 27.7;
+        idealLowHumidity = 50;
+        idealHighHumidity = 100;
+    } else if (currentState == Pineapple) {
+        updateBlynkWidgetLabel(V0, "Current target: Pineapples");
+        updateBlynkWidgetColor(V0, "#87DE24"); // Green-ish
+
+        Serial.println("Changing to Pineapple variables");
+        minTemp = 10;
+        maxTemp = 35;
+        idealLowTemp = 21.5;
+        idealHighTemp = 31;
+        idealLowHumidity = 40;
+        idealHighHumidity = 60;
+    }
+}
+
 void fruitStateTransition() {
     switch (stateNumber) {
     case 0:
@@ -321,28 +352,6 @@ void fruitStateTransition() {
         currentState = Pineapple;
         ltr.ltr329.setGain(LTR3XX_GAIN_1); // Pineapple - GAIN_1 = 1 lux to 64k     (less accuracy but reaches pineapples max of 40k lux measurement)
         break;
-    }
-}
-
-void updateFruitStateConditions() {
-    if (currentState == Banana) {
-        updateBlynkWidgetLabel(V0, "Current target: Bananas");
-        updateBlynkWidgetColor(V0, colorYellow);
-        minTemp = 15;
-        maxTemp = 30;
-        idealLowTemp = 20.25;
-        idealHighTemp = 27.7;
-        idealLowHumidity = 50;
-        idealHighHumidity = 100;
-    } else if (currentState == Pineapple) {
-        updateBlynkWidgetLabel(V0, "Current target: Pineapples");
-        updateBlynkWidgetColor(V0, colorGreen2);
-        minTemp = 10;
-        maxTemp = 35;
-        idealLowTemp = 21.5;
-        idealHighTemp = 31;
-        idealLowHumidity = 40;
-        idealHighHumidity = 60;
     }
 }
 
@@ -386,6 +395,27 @@ void checkHumidityStatus() {
     uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);
 }
 
+/*
+    Get light sensor converted to lux.
+    upload to blynk.
+
+*/
+
+void getLux() {
+    unsigned int lux;
+    lux = ltr.getFromLightSensor(lux);
+    Serial.print("I am inside getLux() now and lux: ");
+    Serial.println(lux);
+
+    if (lux == 0) {
+        Serial.println("Could not read lux");
+    } else {
+        Blynk.virtualWrite(V3, "Lux: " + lux);
+    }
+}
+
+
+
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
     String BlynkStatusWidgetMessage = "";
     String BlynkStatusWidgetColor = "";
@@ -409,17 +439,32 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
     updateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
 
-void getLux() {
-    unsigned int lux;
-    lux = ltr.getFromLightSensor(lux);
-    Serial.print("Lux: ");
-    Serial.println(lux);
+void uploadTemperatureToBlynk() {
+    Blynk.virtualWrite(V1, temperature);
+}
 
-    if (lux == 0) {
-        Serial.println("Could not read lux");
-    } else {
-        Blynk.virtualWrite(V3, lux);
-    }
+void uploadHumidityToBlynk() {
+    Blynk.virtualWrite(V2, humidity);
+}
+
+void resetBlynkWidget(String color, String message) {
+    updateBlynkWidgetColor(V0, color);     // V0 - Fruit State widget
+    updateBlynkWidgetColor(V8, color);     // V8 - Greenhouse Humidity color
+    updateBlynkWidgetContent(V8, message); // V8 - Greenhouse Humidity message
+    updateBlynkWidgetColor(V9, color);     // V9 - Greenhouse Temperature color
+    updateBlynkWidgetContent(V9, message); // V9 - Greenhouse Temperature message
+}
+
+void updateBlynkWidgetLabel(char vp, String message) {
+    Blynk.setProperty(vp, "label", message);
+}
+
+void updateBlynkWidgetContent(char vp, String message) {
+    Blynk.virtualWrite(vp, message);
+}
+
+void updateBlynkWidgetColor(char vp, String color) {
+    Blynk.setProperty(vp, "color", color);
 }
 
 void showCurrentDateAndTime() {
@@ -427,7 +472,7 @@ void showCurrentDateAndTime() {
     Blynk.virtualWrite(V30, currentDateAndTime);
 }
 
-#define countof(arr) (sizeof(arr) / sizeof(arr[0]))
+#define countof(arr) (sizeof(arr) / sizeof(arr[0])) // Macro to get number of elements in array
 String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_Simple (Rtc by Makuna)
     char dateString[20];
 
@@ -455,34 +500,6 @@ void showCurrentWeather() {
     openWeathermap.disconnectToOpenWeatherMap();
 }
 
-void uploadTemperatureToBlynk() {
-    Blynk.virtualWrite(V1, temperature);
-}
-
-void uploadHumidityToBlynk() {
-    Blynk.virtualWrite(V2, humidity);
-}
-
-void updateBlynkWidgetLabel(char vp, String message) {
-    Blynk.setProperty(vp, "label", message);
-}
-
-void updateBlynkWidgetContent(char vp, String message) {
-    Blynk.virtualWrite(vp, message);
-}
-
-void updateBlynkWidgetColor(char vp, String color) {
-    Blynk.setProperty(vp, "color", color);
-}
-
-void resetBlynkWidget(String color, String message) {
-    updateBlynkWidgetColor(V0, color);     // V0 - Fruit State widget
-    updateBlynkWidgetColor(V8, color);     // V8 - Greenhouse Humidity color
-    updateBlynkWidgetContent(V8, message); // V8 - Greenhouse Humidity message
-    updateBlynkWidgetColor(V9, color);     // V9 - Greenhouse Temperature color
-    updateBlynkWidgetContent(V9, message); // V9 - Greenhouse Temperature message
-}
-
 void esp32SensorStartupCheck() {
     if (esp32Sensor.checkSensorSht31()) {
         Serial.println("SHT31 - Cannot find sensor");
@@ -494,9 +511,11 @@ void esp32SensorStartupCheck() {
         Serial.println("LTR329 - Cannot find sensor");
         updateBlynkWidgetLabel(V3, "LTR329 sensor error");
     }
+
+
 }
 
-void rtcCheckForErrors() {
+void rtcErrorCheckingAndUpdatingDate() {
     RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
     printDateTime(compiled);
     Serial.println();
