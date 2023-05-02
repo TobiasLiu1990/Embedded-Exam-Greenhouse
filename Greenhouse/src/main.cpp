@@ -44,8 +44,7 @@ const char* password = "NikitaBoy";
 const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,no&APPID=";
 const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
-
-ConnectOpenWeathermap openWeathermap(ssid, password, endpoint, key, metric);
+ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 
 // Blynk info
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
@@ -89,8 +88,6 @@ StepperMotorVent vent(ventOpenAngle[0], motorPin1, motorPin2, motorPin3, motorPi
 bool isWindowOpen = false;
 const float tempDiff = 1.9 - 0.7;
 
-//--------Wifi
-bool isConnected = false;
 
 // Timers
 unsigned long previousMillis = 0;
@@ -250,10 +247,8 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         delay(1500);
         Serial.println("Connecting to Wifi...");
-        isConnected = false;
     }
     Serial.println("Connected to the Wifi network");
-    isConnected = true;
 
     Blynk.begin(BLYNK_AUTH_TOKEN, ssidBlynk, pass);
     delay(100);
@@ -269,7 +264,7 @@ void setup() {
     // These should only read sensor data. NOT UPLOAD TO BLYNK HERE...
     timer.setInterval(1000L, showCurrentDateAndTime);
     //timer.setInterval(300000L, showCurrentWeather);
-    timer.setInterval(10000L, showCurrentWeather);
+    //timer.setInterval(10000L, showCurrentWeather);
     timer.setInterval(5000L, setLightSensor);
     timer.setInterval(1000L, checkSensorData);
 }
@@ -295,8 +290,8 @@ void loop() {
             uploadTemperatureToBlynk();
             temperatureReady = true;
 
-            Serial.print(F("Temperature: ")); // debugging for now
-            Serial.println(temperature);      // debugging for now
+            //Serial.print(F("Temperature: ")); // debugging for now
+            //Serial.println(temperature);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read temperature ")); // debugging for now
         }
@@ -305,8 +300,8 @@ void loop() {
             uploadHumidityToBlynk();
             humidityReady = true;
 
-            Serial.print(F("Humidity: ")); // debugging for now
-            Serial.println(humidity);      // debugging for now
+            //Serial.print(F("Humidity: ")); // debugging for now
+            //Serial.println(humidity);      // debugging for now
         } else {
             Serial.println(F("Error, cannot read Humidity")); // debugging for now
         }
@@ -534,18 +529,14 @@ void showCurrentDateAndTime() {
 
 void showCurrentWeather() {
     openWeathermap.connectToOpenWeatherMap();
-    char weatherStatus = openWeathermap.getJsonWeatherStatusData();
-    float weatherTemperature = openWeathermap.getJsonWeatherTemperatureData();
-    String weatherInfo = weatherStatus + ". " + String(weatherTemperature) + "C";
+    String weatherInfo = openWeathermap.getWeatherInfo();
 
-    Serial.print("Weather: ");
-    Serial.println(weatherStatus);
-    Serial.print("Weather temp: ");
-    Serial.println(weatherTemperature);
-
+    Serial.print("Weather info: ");
+    Serial.println(weatherInfo);
 
 
     Blynk.virtualWrite(V31, weatherInfo);
+    openWeathermap.disconnectToOpenWeatherMap();
 }
 
 
