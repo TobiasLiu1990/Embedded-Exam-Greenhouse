@@ -19,8 +19,6 @@ bool ESP32IntegratedSensor::validateNumberReading(float readings) {
 }
 
 bool ESP32IntegratedSensor::errorCheckTemperatureSensor() {
-    String checkSensors = "";
-
     if (!sht31.begin(0x44)) {       //default i2c address
         return true;
         while (1)

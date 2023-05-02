@@ -55,7 +55,6 @@ char pass[] = "NikitaBoy";       // Wifi pw
 StaticJsonDocument<1024> doc;
 BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 
-// Adafruit_SHT31 sht31 = Adafruit_SHT31();
 Adafruit_LTR329 ltr329 = Adafruit_LTR329();
 RtcDS3231<TwoWire> Rtc(Wire);
 
@@ -119,10 +118,6 @@ bool isConnectedToBlynk = false;
 
 String todaysDateAndWeather = "";
 
-// float temperature = 0;
-// float humidity = 0;
-// const float temperatureDifference = 33.88 - 24.40; // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
-// const float humidityDifference = 15.89 - 11;       // ESP32 sensor - DHT11 sensor (doen in room temperature, each ran for ~15min)
 float minTemp;
 float maxTemp;
 float idealLowTemp;
@@ -139,10 +134,8 @@ void showCurrentDateAndTime();
 void showCurrentWeather();
 String getWeatherInfo();
 
-String errorCheckingSensors();
-// bool readTemperature();
+void errorCheckingSensors();
 void uploadTemperatureToBlynk();
-// bool readHumidity();
 void uploadHumidityToBlynk();
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
 
@@ -482,39 +475,10 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
     updateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
 
-/*
-bool readTemperature() {
-    temperature = sht31.readTemperature() - temperatureDifference;
-
-    if (!isnan(temperature)) {
-        Serial.print(F("Temperature: "));
-        Serial.println(temperature);
-        return true;
-    } else {
-        Serial.println(F("Error, cannot read temperature "));
-        return false;
-    }
-}
-*/
 
 void uploadTemperatureToBlynk() {
     Blynk.virtualWrite(V1, temperature);
 }
-
-/*
-bool readHumidity() {
-    humidity = sht31.readHumidity() - humidityDifference;
-
-    if (!isnan(humidity)) {
-        Serial.print(F("Humidity: "));
-        Serial.println(humidity);
-        return true;
-    } else {
-        Serial.println(F("Error, cannot read Humidity"));
-        return false;
-    }
-}
-*/
 
 void uploadHumidityToBlynk() {
     Blynk.virtualWrite(V2, humidity);
@@ -769,22 +733,18 @@ String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_
     return dateString;
 }
 
-String errorCheckingSensors() {
-    String checkSensors = "";
-
+void errorCheckingSensors() {
     if (esp32Sensor.errorCheckTemperatureSensor()) {
-        checkSensors = "SHT31 - Cannot find sensor";
+        Serial.println("SHT31 - Cannot find sensor");
         // updateBlynkWidgetLabel(V1, "Temperature sensor error");
     };
 
     if (!ltr329.begin()) {
-        checkSensors += "LTR329 - Cannot find sensor";
+        Serial.println("LTR329 - Cannot find sensor");
         updateBlynkWidgetLabel(V2, "Humidity sensor error");
         while (1)
             yield();
     }
-
-    return checkSensors;
 }
 
 void rtcErrorCheckingAndUpdatingDate() {
