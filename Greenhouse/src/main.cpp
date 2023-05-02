@@ -7,32 +7,28 @@
 #include <HTTPClient.h>
 #include <RtcDS3231.h>
 #include <Wire.h>
-
 #include "ConnectOpenWeathermap.h"
 #include "ESP32_SHT31_Sensor.h"
 #include "ESP32_LTR329_Sensor.h"
 #include "StepperMotorVent.h"
-//   Later maybe add accelerometer to check if it has been flipped (for light sensor)
+#include <BlynkSimpleEsp32.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
 
 // Wifi
 const char *ssid = "Venti_2.4G";
 const char *password = "NikitaBoy";
 
 // Blynk
-#include <BlynkSimpleEsp32.h>
-#include <WiFi.h>
-#include <WiFiClient.h>
-
 #define BLYNK_TEMPLATE_ID "TMPL4SP7dMP-c"
 #define BLYNK_TEMPLATE_NAME "Greenhouse"
 #define BLYNK_AUTH_TOKEN "90qZjiZBUZwmDULPB9tlfsDqq3fXuoZf"
 #define BLYNK_PRINT Serial
 
+BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 char auth[] = BLYNK_AUTH_TOKEN; // Blynk token
 char ssidBlynk[] = "Venti_2.4G";
 char pass[] = "NikitaBoy";
-
-BlynkTimer timer; // Each Blynk timer can run up to 16 instances.
 
 // Openweathermap
 const String endpoint = "https://api.openweathermap.org/data/2.5/weather?q=Oslo,no&APPID=";
@@ -58,8 +54,6 @@ int motorSpeed = 7;
 int ventOpenAngle[4] = {45, 90, 180, 360};
 StepperMotorVent vent(ventOpenAngle[0], motorPin1, motorPin2, motorPin3, motorPin4, motorSpeed);
 
-bool isWindowOpen = false;
-
 // Timers
 unsigned long previousMillis = 0;
 const long waitInterval = 1000;
@@ -83,12 +77,7 @@ enum Status {
 };
 Status greenhouseStatus;
 
-String colorGreen = "#228B22";
-String colorOrange = "#FFC300";
-String colorRed = "#C70039";
-String colorWhite = "#FFFFFF";
-
-
+bool isWindowOpen = false;
 bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
 bool isConnectedToBlynk = false;
@@ -105,6 +94,13 @@ float idealLowHumidity;
 float idealHighHumidity;
 float upperTemperatureMargin = idealHighTemp - sht31.getUpperTemperatureMargin();
 float lowerTemperatureMargin = idealLowTemp + sht31.getLowerTemperatureMargin();
+
+String colorGreen = "#228B22";
+String colorGreen2 = "";
+String colorOrange = "#FFC300";
+String colorRed = "#C70039";
+String colorWhite = "#FFFFFF";
+String colorYellow = "";
 
 // Forward declarations
 void sht31StartupCheck();
@@ -133,7 +129,6 @@ void updateBlynkWidgetContent(char vp, String message);
 void updateBlynkWidgetLabel(char vp, String message);
 // Forward declarations
 
-// Blynk
 // Checks Widget for state change on fruits.
 BLYNK_WRITE(V0) {
     stateNumber = param.asInt();
@@ -156,11 +151,6 @@ BLYNK_WRITE(V4) {
 }
 
 BLYNK_CONNECTED() {
-    // Change Web Link Button message to "Congratulations!"
-    // Blynk.setProperty(V3, "offImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations.png");
-    // Blynk.setProperty(V3, "onImageUrl", "https://static-image.nyc3.cdn.digitaloceanspaces.com/general/fte/congratulations_pressed.png");
-    // Blynk.setProperty(V3, "url", "https://docs.blynk.io/en/getting-started/what-do-i-need-to-blynk/how-quickstart-device-was-made");
-
     Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
     isConnectedToBlynk = true;
 }
@@ -168,7 +158,6 @@ BLYNK_CONNECTED() {
 BLYNK_DISCONNECTED() {
     isConnectedToBlynk = false;
 }
-// Blynk
 
 bool wasError(const char *errorTopic = "") {
     uint8_t error = Rtc.LastError();
@@ -260,7 +249,6 @@ void loop() {
         if (sht31.validateNumberReading(temperature)) {
             uploadTemperatureToBlynk();
             temperatureReady = true;
-
             //Serial.print(F("Temperature: ")); // debugging for now
             //Serial.println(temperature);      // debugging for now
         } else {
@@ -270,7 +258,6 @@ void loop() {
         if (sht31.validateNumberReading(humidity)) {
             uploadHumidityToBlynk();
             humidityReady = true;
-
            // Serial.print(F("Humidity: ")); // debugging for now
             //Serial.println(humidity);      // debugging for now
         } else {
