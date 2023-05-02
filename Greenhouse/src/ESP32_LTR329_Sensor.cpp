@@ -1,4 +1,4 @@
-#include "ESP32_LTR329.h"
+#include "ESP32_LTR329_Sensor.h"
 #include <Arduino.h>
 
 /*
@@ -9,7 +9,7 @@
     https://github.com/sensebox/node-sketch-templater/issues/49
 */
 
-unsigned int ESP32_LTR329::getFromLightSensor(unsigned int lux) {
+unsigned int ESP32_LTR329_Sensor::getFromLightSensor(unsigned int lux) {
     if (ltr329.newDataAvailable()) {
         // 1st param = ch0
         // 2nd param = ch1. Reads both 16-bit channels at once
@@ -39,7 +39,7 @@ unsigned int ESP32_LTR329::getFromLightSensor(unsigned int lux) {
     return 0;
 }
 
-bool ESP32_LTR329::checkSensorLtr329() {
+bool ESP32_LTR329_Sensor::checkSensorLtr329() {
     if (!ltr329.begin()) {
         Serial.println("LTR329 - Cannot find sensor");
         return true;
