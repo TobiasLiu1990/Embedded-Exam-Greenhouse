@@ -356,7 +356,7 @@ void fruitStateTransition() {
 
 void updateFruitStateConditions() {
     if (currentState == Banana) {
-        setLtrSettings(LTR3XX_GAIN_1, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x00], ALS_INT[0x03]);
+        setLtrSettings(LTR3XX_GAIN_4, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x02], ALS_INT[0x03]);
 
         updateBlynkWidgetLabel(V0, "Current target: Bananas");
         updateBlynkWidgetColor(V0, colorYellow);
