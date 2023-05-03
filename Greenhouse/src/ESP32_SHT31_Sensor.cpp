@@ -2,8 +2,7 @@
 #include <Arduino.h>
 
 float ESP32_SHT31_Sensor::readTemperature() {
-    // return temperature = sht31.readTemperature() - getTemperatureCompensation();
-    return temperature = sht31.readTemperature();
+    return temperature = sht31.readTemperature() - getTemperatureCompensation();
 }
 
 float ESP32_SHT31_Sensor::readHumidity() {
@@ -25,14 +24,14 @@ float ESP32_SHT31_Sensor::getHumidityCompensation() {
 // Value is taken from an article for measuing temperature difference from floor - bench level (~1m) - ceiling (~9.8m)
 //  1.9 - 0.7. In reality this might not be a good solution by hardcoding the values.
 // But could be used here as an example to not go too far past the ideal high temperature.
-float ESP32_SHT31_Sensor::getUpperTemperatureMargin() {
-    return 1.2;
+float ESP32_SHT31_Sensor::getUpperTemperatureMargin(float idealHighTemp) {
+    float margin = idealHighTemp - 1.2;
+    return margin;
 }
 
-// This value is measued by the average of (ideal + ideal lower)/2 so the window does not close when temperature go too far down.
-// One article reported ideal to be 27C. Ideal lower temp used here is 20.25C.
-float ESP32_SHT31_Sensor::getLowerTemperatureMargin() {
-    return 23.625;
+float ESP32_SHT31_Sensor::getLowerTemperatureMargin(float idealLowTemp) {
+    float margin = idealLowTemp + 1.2;
+    return margin;
 }
 
 bool ESP32_SHT31_Sensor::validateNumberReading(float readings) {

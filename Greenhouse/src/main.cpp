@@ -97,8 +97,8 @@ float idealLowTemp;
 float idealHighTemp;
 float idealLowHumidity;
 float idealHighHumidity;
-float upperTemperatureMargin = idealHighTemp - sht31.getUpperTemperatureMargin();
-float lowerTemperatureMargin = idealLowTemp + sht31.getLowerTemperatureMargin();
+float upperTemperatureMargin;
+float lowerTemperatureMargin;
 
 String colorGreen = "#228B22";
 String colorGreen2 = "#87DE24";
@@ -155,12 +155,11 @@ BLYNK_WRITE(V4) {
         if 0, means its closed. if temps are low and closed - do nothing
     */
 
-     if (windowState == 0) {
-         isWindowOpen = false;
-     } else if (windowState == 1) {
-         isWindowOpen = true;
-     }
-     
+    if (windowState == 0) {
+        isWindowOpen = false;
+    } else if (windowState == 1) {
+        isWindowOpen = true;
+    }
 }
 
 BLYNK_CONNECTED() {
@@ -262,19 +261,15 @@ void loop() {
         if (sht31.validateNumberReading(temperature)) {
             uploadTemperatureToBlynk();
             temperatureReady = true;
-            // Serial.print(F("Temperature: ")); // debugging for now
-            // Serial.println(temperature);      // debugging for now
         } else {
-            Serial.println(F("Error, cannot read temperature ")); // debugging for now
+            Blynk.logEvent("sensor_error", String("Error, cannot read temperature"));
         }
 
         if (sht31.validateNumberReading(humidity)) {
             uploadHumidityToBlynk();
             humidityReady = true;
-            // Serial.print(F("Humidity: ")); // debugging for now
-            // Serial.println(humidity);      // debugging for now
         } else {
-            Serial.println(F("Error, cannot read Humidity")); // debugging for now
+            Blynk.logEvent("sensor_error", String("Error, cannot read Humidity"));
         }
         previousMillisSensor = currentMillis;
     }
@@ -285,12 +280,10 @@ void loop() {
         isStateChanged = false;
     }
 
-
-
     if (isWindowOpen == false) {
-        Serial.println("Inside first of window open");
-        if (temperature > upperTemperatureMargin) { // This check is so that the windows should open before the current temp at bench level gets to high.
-            Serial.println("Inside 2nd of window open - should now open");
+        if (temperature > upperTemperatureMargin) { // 26.5
+            Serial.println("Window opening");
+
             isWindowOpen = true;
             vent.openWindow();
             vent.setMotorIdle();
@@ -299,7 +292,9 @@ void loop() {
             Blynk.virtualWrite(V4, 1);
         }
     } else if (isWindowOpen == true) {
-        if (temperature < lowerTemperatureMargin) {
+        if (temperature < lowerTemperatureMargin) { // 4
+            Serial.println("Window closing");
+
             isWindowOpen = false;
             vent.closeWindow();
             vent.setMotorIdle();
@@ -364,6 +359,14 @@ void updateFruitStateConditions() {
         idealHighTemp = 27.7;
         idealLowHumidity = 50;
         idealHighHumidity = 100;
+        //Testing window with wrong values
+        //Sensor reads around 34-35
+        upperTemperatureMargin = 25;    //Dummy values
+        lowerTemperatureMargin = 23;    //Dummy values
+
+
+        //upperTemperatureMargin = sht31.getUpperTemperatureMargin(idealHighTemp);     // 27.7 - 1.2 = 26.50
+        //lowerTemperatureMargin = sht31.getLowerTemperatureMargin(idealLowTemp);      // 20.25 + 1.25 = 21.50
     } else if (currentState == Pineapple) {
         setLtrSettings(LTR3XX_GAIN_1, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x00], ALS_INT[0x03]);
 
@@ -375,6 +378,8 @@ void updateFruitStateConditions() {
         idealHighTemp = 31;
         idealLowHumidity = 40;
         idealHighHumidity = 60;
+        upperTemperatureMargin = sht31.getUpperTemperatureMargin(idealHighTemp);
+        lowerTemperatureMargin = sht31.getLowerTemperatureMargin(idealLowTemp);
     }
 }
 
