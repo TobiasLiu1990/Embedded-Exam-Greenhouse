@@ -4,9 +4,6 @@
 /*
     LTR329 Appendix A on Lux-formula from github source:
     https://github.com/sensebox/SenseBoxMCU-Lib/blob/master/SenseBoxMCU.cpp
-
-    Corrected solution
-    https://github.com/sensebox/node-sketch-templater/issues/49
 */
 
 unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
