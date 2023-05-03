@@ -9,6 +9,7 @@
 #include "ConnectOpenWeathermap.h"
 #include "ESP32_LTR329_Sensor.h"
 #include "ESP32_SHT31_Sensor.h"
+#include "RunMotor.h"
 #include "StepperMotorVent.h"
 #include <Arduino.h>
 #include <BlynkSimpleEsp32.h>
@@ -47,8 +48,10 @@ float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
 
 //---------------------L293D
 // Might add fan for later use if possible
-// #define enablePin1 D9
-// #define pin1A D6
+#define enableMotor1 A2
+#define fanPin1A A3
+
+RunMotor fanMotor;
 
 // Stepper Motor
 const int motorPin1 = 9;  // Blue
@@ -217,6 +220,8 @@ void setup() {
     pinMode(motorPin2, OUTPUT);
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
+    pinMode(enableMotor1, OUTPUT);
+    pinMode(fanPin1A, OUTPUT);
 
     rtcErrorCheckingAndUpdatingDate(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     sht31StartupCheck();
@@ -278,6 +283,13 @@ void loop() {
         fruitStateTransition();
         updateFruitStateConditions();
         isStateChanged = false;
+    }
+
+    if (isConnectedToBlynk) {
+        digitalWrite(fanPin1A, HIGH);
+        analogWrite(enableMotor1, fanMotor.getFanSpeed());
+    } else {
+        digitalWrite(fanPin1A, LOW);
     }
 
     if (isWindowOpen == false) {
@@ -359,14 +371,13 @@ void updateFruitStateConditions() {
         idealHighTemp = 27.7;
         idealLowHumidity = 50;
         idealHighHumidity = 100;
-        //Testing window with wrong values
-        //Sensor reads around 34-35
-        upperTemperatureMargin = 25;    //Dummy values
-        lowerTemperatureMargin = 23;    //Dummy values
+        // Testing window with wrong values
+        // Sensor reads around 34-35
+        upperTemperatureMargin = 25; // Dummy values
+        lowerTemperatureMargin = 23; // Dummy values
 
-
-        //upperTemperatureMargin = sht31.getUpperTemperatureMargin(idealHighTemp);     // 27.7 - 1.2 = 26.50
-        //lowerTemperatureMargin = sht31.getLowerTemperatureMargin(idealLowTemp);      // 20.25 + 1.25 = 21.50
+        // upperTemperatureMargin = sht31.getUpperTemperatureMargin(idealHighTemp);     // 27.7 - 1.2 = 26.50
+        // lowerTemperatureMargin = sht31.getLowerTemperatureMargin(idealLowTemp);      // 20.25 + 1.25 = 21.50
     } else if (currentState == Pineapple) {
         setLtrSettings(LTR3XX_GAIN_1, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x00], ALS_INT[0x03]);
 
@@ -465,7 +476,7 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
         BlynkStatusWidgetColor = widgetColor;
         break;
     case Critical:
-        BlynkStatusWidgetMessage = "Critical Warning! " + widgetMessage + " is reaching dangerous levels";
+        BlynkStatusWidgetMessage = "Critical! " + widgetMessage + " is reaching dangerous levels";
         BlynkStatusWidgetColor = widgetColor;
         break;
     }
