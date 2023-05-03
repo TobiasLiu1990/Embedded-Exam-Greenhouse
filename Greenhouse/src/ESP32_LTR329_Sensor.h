@@ -7,7 +7,6 @@ public:
     uint16_t visibleAndIr;
     uint16_t infrared;
 
-    unsigned int lux;
     uint gainCalc;
     float integTimeCalc;
 

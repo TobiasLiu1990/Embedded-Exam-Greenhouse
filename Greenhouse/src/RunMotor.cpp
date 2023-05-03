@@ -21,5 +21,5 @@
 
 //Method is quite empty, but the idea is that multiple fans might be needed in reality.
 int RunMotor::setDefaultFanSpeed() {
-    return 100;
+    return 0;
 }

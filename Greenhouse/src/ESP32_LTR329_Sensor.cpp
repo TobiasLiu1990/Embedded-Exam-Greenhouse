@@ -10,6 +10,8 @@
 */
 
 unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
+    unsigned int lux;
+
     if (ltr329.newDataAvailable()) {
         // 1st param = ch0
         // 2nd param = ch1. Reads both 16-bit channels at once
@@ -20,43 +22,28 @@ unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
             }
 
             double ratio = infrared / (visibleAndIr + infrared);
-            /*
-            Serial.print("Current actual gain: ");
-            Serial.println(ltr329.getGain());
-            Serial.println();
-            Serial.print("ch0: ");
-            Serial.println(visibleAndIr);
-            Serial.print("ch1: ");
-            Serial.println(infrared);
-            Serial.print("gainCalc: ");
-            Serial.println(gainCalc);
-            Serial.print("integCalc: ");
-            Serial.println(integTimeCalc);
-            */
 
             if (ratio < 0.45) {
                 Serial.println("ratio 1");
-                lux = ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / gainCalc / integTimeCalc;
+                return ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / gainCalc / integTimeCalc; // integTimeCalc = 4.0
             } else if (ratio < 0.64 && ratio >= 0.45) {
                 Serial.println("ratio 2");
-                lux = ((4.2785 * visibleAndIr) - (1.9548 * infrared)) / gainCalc / integTimeCalc;
+                return ((4.2785 * visibleAndIr) - (1.9548 * infrared)) / gainCalc / integTimeCalc;
             } else if (ratio < 0.85 && ratio >= 0.64) {
                 Serial.println("ratio 3");
-                lux = ((0.5926 * visibleAndIr) + (0.1185 * infrared)) / gainCalc / integTimeCalc;
-            } else {
-                lux = 0;
+                return ((0.5926 * visibleAndIr) + (0.1185 * infrared)) / gainCalc / integTimeCalc;
             }
         }
     }
-    return lux;
+    return 0;
 }
 
 void ESP32_LTR329_Sensor::setGainCalc(uint newGainCalc) {
-    gainCalc = newGainCalc;
+    this->gainCalc = newGainCalc;
 }
 
 void ESP32_LTR329_Sensor::setIntegTimeCalc(float newIntegTimeCalc) {
-    integTimeCalc = newIntegTimeCalc;
+    this->integTimeCalc = newIntegTimeCalc;
 }
 
 bool ESP32_LTR329_Sensor::checkSensorLtr329() {
