@@ -1,6 +1,9 @@
 /*
   https://stackoverflow.com/questions/46111834/format-curly-braces-on-same-line-in-c-vscode - For changing auto format behaviour
   https://htmlcolorcodes.com/colors/shades-of-green/
+
+  Blynk event limit: 5 (free)
+  Blynk notificaton limit: 100 per day
 */
 
 #include "ConnectOpenWeathermap.h"
@@ -238,6 +241,7 @@ void setup() {
     timer.setInterval(1000L, checkSensorData);
 }
 
+
 void loop() {
     Blynk.run();
     timer.run();
@@ -330,7 +334,7 @@ void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr3
 
 void updateFruitStateConditions() {
     if (currentState == Banana) {
-        setLtrSettings(LTR3XX_GAIN_4, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[2], ALS_INT[3]);
+        setLtrSettings(LTR3XX_GAIN_4, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x02], ALS_INT[0x03]);
 
         updateBlynkWidgetLabel(V0, "Current target: Bananas");
         updateBlynkWidgetColor(V0, colorYellow);
@@ -341,7 +345,7 @@ void updateFruitStateConditions() {
         idealLowHumidity = 50;
         idealHighHumidity = 100;
     } else if (currentState == Pineapple) {
-        setLtrSettings(LTR3XX_GAIN_1, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0], ALS_INT[3]);
+        setLtrSettings(LTR3XX_GAIN_1, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x00], ALS_INT[0x03]);
 
         updateBlynkWidgetLabel(V0, "Current target: Pineapples");
         updateBlynkWidgetColor(V0, colorGreen2);
@@ -390,6 +394,10 @@ void checkTemperatureStatus() {
         widgetColor = colorRed;
     }
 
+    if (greenhouseStatus == Warning || greenhouseStatus == Critical) {
+        Blynk.logEvent("temp_alert");
+    }
+
     uploadStatusMessageToBlynk(V9, "Temperature", widgetColor, idealLowTemp, idealHighTemp);
 }
 
@@ -402,6 +410,7 @@ void checkHumidityStatus() {
     } else {
         greenhouseStatus = Critical;
         widgetColor = colorRed;
+        Blynk.logEvent("temp_alert");
     }
 
     uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);

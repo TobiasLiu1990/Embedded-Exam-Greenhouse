@@ -12,7 +12,7 @@ public:
     float integTimeCalc;
 
     ESP32_LTR329_Sensor() {
-        ltr329 = Adafruit_LTR329();
+        this->ltr329 = Adafruit_LTR329();
     }
 
     unsigned int getFromLightSensor();
