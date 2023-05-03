@@ -309,6 +309,27 @@ void initBlynk() {
     updateFruitStateConditions();
 }
 
+void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {
+    ltr.ltr329.setGain(gain); // Banana Gain 4, 0.25 - 16k
+    ltr.ltr329.setIntegrationTime(integTime);
+    ltr.ltr329.setMeasurementRate(measRate);
+    ltr.setGainCalc(als_gain);
+    ltr.setIntegTimeCalc(als_int);
+}
+
+void getLux() {
+    unsigned int lux = ltr.getFromLightSensor();
+
+    Serial.print("Lux: ");
+    Serial.println(lux);
+
+    if (lux == 0) {
+        Serial.println("Could not read lux");
+    } else {
+        Blynk.virtualWrite(V3, lux);
+    }
+}
+
 void fruitStateTransition() {
     switch (stateNumber) {
     case 0:
@@ -318,17 +339,6 @@ void fruitStateTransition() {
         currentState = Pineapple;
         break;
     }
-}
-
-// uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
-// float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
-
-void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {
-    ltr.ltr329.setGain(gain); // Banana Gain 4, 0.25 - 16k
-    ltr.ltr329.setIntegrationTime(integTime);
-    ltr.ltr329.setMeasurementRate(measRate);
-    ltr.setGainCalc(als_gain);
-    ltr.setIntegTimeCalc(als_int);
 }
 
 void updateFruitStateConditions() {
@@ -357,19 +367,6 @@ void updateFruitStateConditions() {
     }
 }
 
-void getLux() {
-    unsigned int lux = ltr.getFromLightSensor();
-
-    Serial.print("Lux: ");
-    Serial.println(lux);
-
-    if (lux == 0) {
-        Serial.println("Could not read lux");
-    } else {
-        Blynk.virtualWrite(V3, lux);
-    }
-}
-
 void checkSensorData() {
     if (temperatureReady) {
         checkTemperatureStatus();
@@ -390,26 +387,24 @@ void checkTemperatureStatus() {
         if (temperature >= minTemp && temperature <= idealLowTemp) {
             greenhouseStatus = Warning;
             widgetColor = colorOrange;
-            logEventMessage = "Warning, Temperature is under ideal lower temperature of:" + String(idealLowTemp);
+            logEventMessage = "Warning, current temperature: " + String(temperature) + " is under ideal lower temperature of: " + String(idealLowTemp);
 
         } else if (temperature >= idealHighTemp && temperature <= maxTemp) {
             greenhouseStatus = Warning;
             widgetColor = colorOrange;
-            logEventMessage = "Warning, Temperature is over ideal upper temperature of:" + String(idealHighTemp);
+            logEventMessage = "Warning, current temperature: " + String(temperature) + " is over ideal upper temperature of: " + String(idealHighTemp);
 
         } else if (temperature < minTemp) {
             greenhouseStatus = Critical;
             widgetColor = colorRed;
-            logEventMessage = "Warning, Temperature is under min. temperature of:" + String(minTemp);
+            logEventMessage = "Critical Warning, current temperature: " + String(temperature) + " is under min. temperature of: " + String(minTemp);
 
         } else if (temperature > maxTemp) {
-            logEventMessage = "Warning, Temperature is over max. temperature of:" + String(maxTemp);
+            logEventMessage = "Critical Warning, current temperature: " + String(temperature) + " is over max. temperature of: " + String(maxTemp);
             greenhouseStatus = Critical;
             widgetColor = colorRed;
         }
-    }
 
-    if (greenhouseStatus != Normal) {
         Blynk.logEvent("temp_alert", logEventMessage);
     }
 
@@ -417,15 +412,24 @@ void checkTemperatureStatus() {
 }
 
 void checkHumidityStatus() {
+    String logEventMessage = "";
     String widgetColor = "";
 
-    if (humidity >= idealLowHumidity && humidity <= idealHighHumidity) {
+    if (humidity > idealLowHumidity && humidity < idealHighHumidity) {
         greenhouseStatus = Normal;
         widgetColor = colorGreen;
     } else {
-        greenhouseStatus = Critical;
-        widgetColor = colorRed;
-        Blynk.logEvent("temp_alert");
+        if (humidity <= idealLowHumidity) {
+            logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is under ideal level of: " + String(idealLowHumidity);
+            greenhouseStatus = Critical;
+            widgetColor = colorRed;
+        } else if (humidity >= idealHighHumidity) {
+            logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is over ideal level of: " + String(idealHighHumidity);
+            greenhouseStatus = Critical;
+            widgetColor = colorRed;
+        }
+
+        Blynk.logEvent("humid_alert", logEventMessage);
     }
 
     uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);
