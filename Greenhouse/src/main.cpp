@@ -241,7 +241,6 @@ void setup() {
     timer.setInterval(1000L, checkSensorData);
 }
 
-
 void loop() {
     Blynk.run();
     timer.run();
@@ -321,7 +320,7 @@ void fruitStateTransition() {
     }
 }
 
- //uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
+// uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
 // float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
 
 void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {
@@ -381,21 +380,37 @@ void checkSensorData() {
 }
 
 void checkTemperatureStatus() {
+    String logEventMessage = "";
     String widgetColor = "";
 
-    if (temperature >= idealLowTemp && temperature <= idealHighTemp) {
+    if (temperature > idealLowTemp && temperature < idealHighTemp) {
         greenhouseStatus = Normal;
         widgetColor = colorGreen;
-    } else if ((temperature > minTemp && temperature < idealLowTemp) || (temperature > idealHighTemp && temperature < maxTemp)) {
-        greenhouseStatus = Warning;
-        widgetColor = colorOrange;
-    } else if (temperature < minTemp || temperature > maxTemp) {
-        greenhouseStatus = Critical;
-        widgetColor = colorRed;
+    } else {
+        if (temperature >= minTemp && temperature <= idealLowTemp) {
+            greenhouseStatus = Warning;
+            widgetColor = colorOrange;
+            logEventMessage = "Warning, Temperature is under ideal lower temperature of:" + String(idealLowTemp);
+
+        } else if (temperature >= idealHighTemp && temperature <= maxTemp) {
+            greenhouseStatus = Warning;
+            widgetColor = colorOrange;
+            logEventMessage = "Warning, Temperature is over ideal upper temperature of:" + String(idealHighTemp);
+
+        } else if (temperature < minTemp) {
+            greenhouseStatus = Critical;
+            widgetColor = colorRed;
+            logEventMessage = "Warning, Temperature is under min. temperature of:" + String(minTemp);
+
+        } else if (temperature > maxTemp) {
+            logEventMessage = "Warning, Temperature is over max. temperature of:" + String(maxTemp);
+            greenhouseStatus = Critical;
+            widgetColor = colorRed;
+        }
     }
 
-    if (greenhouseStatus == Warning || greenhouseStatus == Critical) {
-        Blynk.logEvent("temp_alert");
+    if (greenhouseStatus != Normal) {
+        Blynk.logEvent("temp_alert", logEventMessage);
     }
 
     uploadStatusMessageToBlynk(V9, "Temperature", widgetColor, idealLowTemp, idealHighTemp);
@@ -438,8 +453,6 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
     updateBlynkWidgetContent(vp, BlynkStatusWidgetMessage);
     updateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
-
-
 
 void showCurrentDateAndTime() {
     String currentDateAndTime = printDateTime(Rtc.GetDateTime());
