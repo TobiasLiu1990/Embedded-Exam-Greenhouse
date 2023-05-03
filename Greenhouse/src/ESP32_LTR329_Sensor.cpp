@@ -20,6 +20,7 @@ unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
             }
 
             double ratio = infrared / (visibleAndIr + infrared);
+            /*
             Serial.print("Current actual gain: ");
             Serial.println(ltr329.getGain());
             Serial.println();
@@ -31,6 +32,7 @@ unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
             Serial.println(gainCalc);
             Serial.print("integCalc: ");
             Serial.println(integTimeCalc);
+            */
 
             if (ratio < 0.45) {
                 Serial.println("ratio 1");

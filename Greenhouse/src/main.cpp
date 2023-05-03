@@ -146,14 +146,21 @@ BLYNK_WRITE(V0) {
 }
 
 // Checks state for window if open/closed.
+
 BLYNK_WRITE(V4) {
     int windowState = param.asInt();
+    /*
+        Read the state.
+        if 1, means its open. if temps are high and open - do nothing
+        if 0, means its closed. if temps are low and closed - do nothing
+    */
 
-    if (windowState == 0) {
-        isWindowOpen = false;
-    } else if (windowState == 1) {
-        isWindowOpen = true;
-    }
+     if (windowState == 0) {
+         isWindowOpen = false;
+     } else if (windowState == 1) {
+         isWindowOpen = true;
+     }
+     
 }
 
 BLYNK_CONNECTED() {
@@ -278,8 +285,12 @@ void loop() {
         isStateChanged = false;
     }
 
+
+
     if (isWindowOpen == false) {
-        if (temperature > (upperTemperatureMargin)) { // This check is so that the windows should open before the current temp at bench level gets to high.
+        Serial.println("Inside first of window open");
+        if (temperature > upperTemperatureMargin) { // This check is so that the windows should open before the current temp at bench level gets to high.
+            Serial.println("Inside 2nd of window open - should now open");
             isWindowOpen = true;
             vent.openWindow();
             vent.setMotorIdle();
@@ -287,7 +298,7 @@ void loop() {
             updateBlynkWidgetLabel(V4, "Vent: Open");
             Blynk.virtualWrite(V4, 1);
         }
-    } else {
+    } else if (isWindowOpen == true) {
         if (temperature < lowerTemperatureMargin) {
             isWindowOpen = false;
             vent.closeWindow();
