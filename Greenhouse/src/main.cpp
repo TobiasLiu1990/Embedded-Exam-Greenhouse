@@ -39,6 +39,8 @@ ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 RtcDS3231<TwoWire> Rtc(Wire);
 ESP32_SHT31_Sensor sht31;
 ESP32_LTR329_Sensor ltr;
+uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
+float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
 
 //---------------------L293D
 // Might add fan for later use if possible
@@ -117,6 +119,7 @@ void checkSensorData();
 void checkTemperatureStatus();
 void checkHumidityStatus();
 void getLux();
+void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int);
 
 void uploadTemperatureToBlynk();
 void uploadHumidityToBlynk();
@@ -314,12 +317,20 @@ void fruitStateTransition() {
     }
 }
 
+ //uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
+// float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
+
+void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {
+    ltr.ltr329.setGain(gain); // Banana Gain 4, 0.25 - 16k
+    ltr.ltr329.setIntegrationTime(integTime);
+    ltr.ltr329.setMeasurementRate(measRate);
+    ltr.setGainCalc(als_gain);
+    ltr.setIntegTimeCalc(als_int);
+}
+
 void updateFruitStateConditions() {
     if (currentState == Banana) {
-        ltr.ltr329.setGain(LTR3XX_GAIN_4); // GAIN_4 = 0.25 - 16k
-        ltr.ltr329.setIntegrationTime(LTR3XX_INTEGTIME_400);
-        ltr.ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);
-        //ltr.setGainForLuxCalculation(4);
+        setLtrSettings(LTR3XX_GAIN_4, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[2], ALS_INT[3]);
 
         updateBlynkWidgetLabel(V0, "Current target: Bananas");
         updateBlynkWidgetColor(V0, colorYellow);
@@ -330,11 +341,7 @@ void updateFruitStateConditions() {
         idealLowHumidity = 50;
         idealHighHumidity = 100;
     } else if (currentState == Pineapple) {
-        // ltr.ltr329.setGain(LTR3XX_GAIN_1); // GAIN_1 = 1 - 64k (less sensitive reading but can reach above 40k)
-        ltr.ltr329.setGain(LTR3XX_GAIN_1); // GAIN_4 = 0.25 - 16k
-        ltr.ltr329.setIntegrationTime(LTR3XX_INTEGTIME_400);
-        ltr.ltr329.setMeasurementRate(LTR3XX_MEASRATE_500);
-        //ltr.setGainForLuxCalculation(1);
+        setLtrSettings(LTR3XX_GAIN_1, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0], ALS_INT[3]);
 
         updateBlynkWidgetLabel(V0, "Current target: Pineapples");
         updateBlynkWidgetColor(V0, colorGreen2);
@@ -344,6 +351,19 @@ void updateFruitStateConditions() {
         idealHighTemp = 31;
         idealLowHumidity = 40;
         idealHighHumidity = 60;
+    }
+}
+
+void getLux() {
+    unsigned int lux = ltr.getFromLightSensor();
+
+    Serial.print("Lux: ");
+    Serial.println(lux);
+
+    if (lux == 0) {
+        Serial.println("Could not read lux");
+    } else {
+        Blynk.virtualWrite(V3, lux);
     }
 }
 
@@ -410,18 +430,7 @@ void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColo
     updateBlynkWidgetColor(vp, BlynkStatusWidgetColor);
 }
 
-void getLux() {
-    unsigned int lux;
-    lux = ltr.getFromLightSensor(lux);
-    Serial.print("Lux: ");
-    Serial.println(lux);
 
-    if (lux == 0) {
-        Serial.println("Could not read lux");
-    } else {
-        Blynk.virtualWrite(V3, lux);
-    }
-}
 
 void showCurrentDateAndTime() {
     String currentDateAndTime = printDateTime(Rtc.GetDateTime());

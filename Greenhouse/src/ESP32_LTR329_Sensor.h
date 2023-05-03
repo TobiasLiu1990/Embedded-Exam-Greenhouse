@@ -4,18 +4,20 @@
 class ESP32_LTR329_Sensor {
 public:
     Adafruit_LTR329 ltr329;
-    ltr329_gain_t gain;
     uint16_t visibleAndIr;
     uint16_t infrared;
+
+    unsigned int lux;
     uint gainCalc;
     float integTimeCalc;
 
     ESP32_LTR329_Sensor() {
         ltr329 = Adafruit_LTR329();
-        integTimeCalc = 4.0;
     }
 
-    unsigned int getFromLightSensor(unsigned int lux);
+    unsigned int getFromLightSensor();
     bool checkSensorLtr329();
     void setGainForLuxCalculation(uint fruitGainCalc);
+    void setGainCalc(uint newGainCalc);
+    void setIntegTimeCalc(float newIntegTimeCalc);
 };
