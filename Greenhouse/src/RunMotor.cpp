@@ -18,6 +18,8 @@
 // This would need 1 x 36" fan.
 // Lets assume the fan used in this project is of that size.
 // And assume that the fan only needs to run at 100 rpm to keep temperature stable
-int getFanSpeed() {
+
+//Method is quite empty, but the idea is that multiple fans might be needed in reality.
+int RunMotor::setDefaultFanSpeed() {
     return 100;
 }

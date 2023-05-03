@@ -48,8 +48,8 @@ float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
 
 //---------------------L293D
 // Might add fan for later use if possible
-#define enableMotor1 A2
-#define fanPin1A A3
+#define enable1 A2
+#define fanMotor1 A3
 
 RunMotor fanMotor;
 
@@ -165,8 +165,13 @@ BLYNK_WRITE(V4) {
     }
 }
 
+BLYNK_WRITE(V50) {
+    int speed = param.asInt();
+    analogWrite(enable1, speed);
+}
+
 BLYNK_CONNECTED() {
-    Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
+    Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9, V50); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
     isConnectedToBlynk = true;
 }
 
@@ -220,8 +225,8 @@ void setup() {
     pinMode(motorPin2, OUTPUT);
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
-    pinMode(enableMotor1, OUTPUT);
-    pinMode(fanPin1A, OUTPUT);
+    pinMode(enable1, OUTPUT);
+    pinMode(fanMotor1, OUTPUT);
 
     rtcErrorCheckingAndUpdatingDate(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     sht31StartupCheck();
@@ -285,15 +290,8 @@ void loop() {
         isStateChanged = false;
     }
 
-    if (isConnectedToBlynk) {
-        digitalWrite(fanPin1A, HIGH);
-        analogWrite(enableMotor1, fanMotor.getFanSpeed());
-    } else {
-        digitalWrite(fanPin1A, LOW);
-    }
-
     if (isWindowOpen == false) {
-        if (temperature > upperTemperatureMargin) { // 26.5
+        if (temperature > upperTemperatureMargin) {
             Serial.println("Window opening");
 
             isWindowOpen = true;
@@ -304,7 +302,7 @@ void loop() {
             Blynk.virtualWrite(V4, 1);
         }
     } else if (isWindowOpen == true) {
-        if (temperature < lowerTemperatureMargin) { // 4
+        if (temperature < lowerTemperatureMargin) {
             Serial.println("Window closing");
 
             isWindowOpen = false;
@@ -325,6 +323,9 @@ void initBlynk() {
     stateNumber = 0;
     fruitStateTransition();
     updateFruitStateConditions();
+    digitalWrite(fanMotor1, HIGH);
+    analogWrite(enable1, fanMotor.setDefaultFanSpeed());
+    Blynk.virtualWrite(V50, fanMotor.setDefaultFanSpeed());
 }
 
 void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {
