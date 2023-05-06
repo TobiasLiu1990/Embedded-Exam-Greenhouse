@@ -2,7 +2,7 @@
 #include <Arduino.h>
 
 ESP32_SHT31_Sensor::ESP32_SHT31_Sensor() {
-    sht31 = Adafruit_SHT31();
+    this->sht31 = Adafruit_SHT31();
 }
 
 float ESP32_SHT31_Sensor::getTemperature() {
@@ -29,13 +29,11 @@ float ESP32_SHT31_Sensor::getHumidityCompensation() {
 //  1.9 - 0.7. In reality this might not be a good solution by hardcoding the values.
 // But could be used here as an example to not go too far past the ideal high temperature.
 float ESP32_SHT31_Sensor::getUpperTemperatureMargin(float idealHighTemp) {
-    float margin = idealHighTemp - 1.2;
-    return margin;
+    return idealHighTemp - 1.2;
 }
 
 float ESP32_SHT31_Sensor::getLowerTemperatureMargin(float idealLowTemp) {
-    float margin = idealLowTemp + 1.2;
-    return margin;
+    return idealLowTemp + 1.2;
 }
 
 bool ESP32_SHT31_Sensor::validateNumberReading(float readings) {

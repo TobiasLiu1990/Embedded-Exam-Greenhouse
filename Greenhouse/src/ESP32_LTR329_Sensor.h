@@ -2,17 +2,16 @@
 #include <Arduino.h>
 
 class ESP32_LTR329_Sensor {
-public:
-    Adafruit_LTR329 ltr329;
+private:
     uint16_t visibleAndIr;
     uint16_t infrared;
-
     uint gainCalc;
     float integTimeCalc;
 
-    ESP32_LTR329_Sensor() {
-        this->ltr329 = Adafruit_LTR329();
-    }
+public:
+    Adafruit_LTR329 ltr329;
+
+    ESP32_LTR329_Sensor();
 
     unsigned int getFromLightSensor();
     bool checkSensorLtr329();

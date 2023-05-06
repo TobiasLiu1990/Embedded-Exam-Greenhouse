@@ -43,7 +43,7 @@ float Fruit::getLowerTemperatureMargin() {
 }
 
 void Fruit::setLowerTemperatureMargin(float newLowerMargin) {
-    lowerTemperatureMargin = newLowerMargin;
+    this->lowerTemperatureMargin = newLowerMargin;
 }
 
 float Fruit::getUpperTemperatureMargin() {
@@ -51,6 +51,5 @@ float Fruit::getUpperTemperatureMargin() {
 }
 
 void Fruit::setUpperTemperatureMargin(float newUpperMargin) {
-    upperTemperatureMargin = newUpperMargin;
+    this->upperTemperatureMargin = newUpperMargin;
 }
-

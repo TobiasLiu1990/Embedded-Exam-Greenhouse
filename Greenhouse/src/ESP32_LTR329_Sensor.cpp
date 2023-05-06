@@ -6,6 +6,10 @@
     https://github.com/sensebox/SenseBoxMCU-Lib/blob/master/SenseBoxMCU.cpp
 */
 
+ESP32_LTR329_Sensor::ESP32_LTR329_Sensor() {
+    this->ltr329 = Adafruit_LTR329();
+}
+
 unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
     unsigned int lux;
 
@@ -21,7 +25,7 @@ unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
             double ratio = infrared / (visibleAndIr + infrared);
 
             if (ratio < 0.45) {
-                return ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / gainCalc / integTimeCalc; // integTimeCalc = 4.0
+                return ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / gainCalc / integTimeCalc;
             } else if (ratio < 0.64 && ratio >= 0.45) {
                 return ((4.2785 * visibleAndIr) - (1.9548 * infrared)) / gainCalc / integTimeCalc;
             } else if (ratio < 0.85 && ratio >= 0.64) {
