@@ -8,7 +8,16 @@
   45deg  - 0.125 revolution  =  64
 */
 
-void StepperMotorVent::setSequencesToAngle() {
+StepperMotorVent::StepperMotorVent(int motorPin1, int motorPin2, int motorPin3, int motorPin4, int motorSpeed) {
+    this->motorPin1 = motorPin1;
+    this->motorPin2 = motorPin2;
+    this->motorPin3 = motorPin3;
+    this->motorPin4 = motorPin4;
+    this->motorSpeed = motorSpeed;
+    this->sequences = 0;
+}
+
+void StepperMotorVent::setSequencesToAngle(int openAngle) {
     switch (openAngle) {
     case 45:
         sequences = 64;
@@ -25,8 +34,12 @@ void StepperMotorVent::setSequencesToAngle() {
     }
 }
 
-void StepperMotorVent::changeSequencesToAngle(int newVentAngle) {
-    sequences = newVentAngle;
+bool StepperMotorVent::checkSequences() {
+    if (sequences >= 0) {
+        return true; 
+    } else {
+        return false;
+    }
 }
 
 void StepperMotorVent::openWindow() {

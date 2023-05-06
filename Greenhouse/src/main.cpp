@@ -61,7 +61,7 @@ const int motorPin3 = 11; // Yellow
 const int motorPin4 = 12; // Orange
 int motorSpeed = 7;
 int ventOpenAngle[4] = {45, 90, 180, 360};
-StepperMotorVent vent(ventOpenAngle[0], motorPin1, motorPin2, motorPin3, motorPin4, motorSpeed);
+StepperMotorVent vent(motorPin1, motorPin2, motorPin3, motorPin4, motorSpeed);
 
 // Timers
 unsigned long previousMillis = 0;
@@ -100,17 +100,6 @@ float humidity;
 bool temperatureReady;
 bool humidityReady;
 
-/*
-float minTemp;
-float maxTemp;
-float idealLowTemp;
-float idealHighTemp;
-float idealLowHumidity;
-float idealHighHumidity;
-float upperTemperatureMargin;
-float lowerTemperatureMargin;
-*/
-
 String colorGreen = "#228B22";
 String colorGreen2 = "#87DE24";
 String colorOrange = "#FFC300";
@@ -140,7 +129,7 @@ void uploadTemperatureToBlynk();
 void uploadHumidityToBlynk();
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
 
-void initBlynk();
+void init();
 void resetBlynkWidget(String color, String message);
 void updateBlynkWidgetColor(char vp, String color);
 void updateBlynkWidgetContent(char vp, String message);
@@ -257,7 +246,7 @@ void setup() {
         delay(1000);
     }
     Serial.println("currentDateAndTime connected to Blynk Greenhouse!");
-    initBlynk(); // Init Blynk with Banana as default
+    init();
 
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, showCurrentDateAndTime);
@@ -324,9 +313,17 @@ void loop() {
     }
 }
 
-void initBlynk() {
-    // On startup/reset - need to use fresh data.
-    // Setting default to Banana.
+void init() {
+    /*
+    On startup - Sets some default values:
+        - Resets labels on Blynk.
+        - Sets and update State/Fruit to Banana.
+        - Sets opening angle to 45 degrees.
+        - Start motor to default speed (fan)
+
+        - Updates these things in Blynk
+    */
+
     resetBlynkWidget(colorWhite, "Loading status...");
 
     currentFruit = banana;
@@ -335,6 +332,14 @@ void initBlynk() {
 
     stateTransition();
     updateStateConditions();
+
+    vent.setSequencesToAngle(ventOpenAngle[0]);     //Sets how much the Stepper motor needs to spin for 45 degrees.
+    if (vent.checkSequences()) {
+        Serial.println("Successfully set angle");
+    } else {
+        Serial.println("Angle was not set");
+    }
+
     digitalWrite(fanMotor1, HIGH);
     analogWrite(enable1, fanMotor.setDefaultFanSpeed());
     Blynk.virtualWrite(V50, fanMotor.setDefaultFanSpeed());
@@ -388,6 +393,11 @@ void updateUpperAndLowerTemperatureMargins() {
     float upperTempMargin = sht31.getUpperTemperatureMargin(currentFruit.getIdealHighTemp());
     currentFruit.setLowerTemperatureMargin(lowerTempMargin);
     currentFruit.setUpperTemperatureMargin(upperTempMargin);
+
+    Serial.print("lower temp margin: ");
+    Serial.println(currentFruit.getLowerTemperatureMargin());
+    Serial.print("upper temp margin: ");
+    Serial.println(currentFruit.getUpperTemperatureMargin());
 }
 
 void checkSensorData() {

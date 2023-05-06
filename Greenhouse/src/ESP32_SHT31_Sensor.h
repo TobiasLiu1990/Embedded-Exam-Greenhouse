@@ -5,7 +5,7 @@ class ESP32_SHT31_Sensor {
 public:
     Adafruit_SHT31 sht31;
 
-    ESP32_SHT31_Sensor() {};
+    ESP32_SHT31_Sensor();
 
     float getTemperature();
     float getHumidity();

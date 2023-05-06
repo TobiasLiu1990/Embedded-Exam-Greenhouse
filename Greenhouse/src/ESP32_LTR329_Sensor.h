@@ -11,7 +11,7 @@ private:
 public:
     Adafruit_LTR329 ltr329;
 
-    ESP32_LTR329_Sensor() {};
+    ESP32_LTR329_Sensor();
 
     unsigned int getFromLightSensor();
     bool checkSensorLtr329();
