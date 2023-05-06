@@ -4,7 +4,7 @@
 #include <WiFi.h>
 
 class ConnectOpenWeathermap {
-public:
+private:
     String endpoint;
     String key;
     String metric;
@@ -13,15 +13,10 @@ public:
     JsonObject weather_0;
     JsonObject mainInfo;
 
-    ConnectOpenWeathermap(String endpoint, String key, String metric) {
-        this->endpoint = endpoint;
-        this->key = key;
-        this->metric = metric;
-    }
+public:
+    ConnectOpenWeathermap(String endpoint, String key, String metric);
 
-    void connectToOpenWeatherMap();
-    void disconnectToOpenWeatherMap();
-
-    void showCurrentWeather();
+    void connect();
+    void disconnect();
     String getWeatherInfo();
 };

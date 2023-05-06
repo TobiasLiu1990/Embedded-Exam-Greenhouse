@@ -13,7 +13,7 @@ private:
     float upperTemperatureMargin;
 
 public:
-    Fruit();
+    Fruit() {};
 
     Fruit(float minTemp, float maxTemp, float idealLowTemp, float idealHighTemp, float idealLowHumidity, float idealHighHumidity);
 

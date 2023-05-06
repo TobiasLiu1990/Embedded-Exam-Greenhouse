@@ -2,6 +2,5 @@
 
 class RunMotor {
 public:
-
     int setDefaultFanSpeed();
 };

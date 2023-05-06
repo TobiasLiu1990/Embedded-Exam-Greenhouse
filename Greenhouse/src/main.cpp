@@ -504,14 +504,14 @@ String printDateTime(const RtcDateTime &date) {     // Example code from DS3231_
 }
 
 void showCurrentWeather() {
-    openWeathermap.connectToOpenWeatherMap();
+    openWeathermap.connect();
     String weatherInfo = openWeathermap.getWeatherInfo();
 
     Serial.print("Weather info: ");
     Serial.println(weatherInfo);
 
     Blynk.virtualWrite(V31, weatherInfo);
-    openWeathermap.disconnectToOpenWeatherMap();
+    openWeathermap.disconnect();
 }
 
 void uploadTemperatureToBlynk() {
