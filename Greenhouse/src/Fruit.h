@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 class Fruit {
-public:
+private:
     float minTemp;
     float maxTemp;
     float idealLowTemp;
@@ -9,17 +9,24 @@ public:
     float idealLowHumidity;
     float idealHighHumidity;
 
-    float upperTemperatureMargin;
     float lowerTemperatureMargin;
+    float upperTemperatureMargin;
 
+public:
     Fruit();
+
+    Fruit(float minTemp, float maxTemp, float idealLowTemp, float idealHighTemp, float idealLowHumidity, float idealHighHumidity);
+
+    float getMinTemp();
+    float getMaxTemp();
+    float getIdealLowTemp();
+    float getIdealHighTemp();
+    float getIdealLowHumidity();
+    float getIdealHighHumidity();
+
+    void setLowerTemperatureMargin(float newLowerMargin);
+    float getLowerTemperatureMargin();
     
-    Fruit(float minTemp, float maxTemp, float idealLowTemp, float idealHighTemp, float idealLowHumidity, float idealHighHumidity) {
-        this->minTemp = minTemp;
-        this->maxTemp = maxTemp;
-        this->idealLowTemp = idealLowTemp;
-        this->idealHighTemp = idealHighTemp;
-        this->idealLowHumidity = idealLowHumidity;
-        this->idealHighHumidity = idealHighHumidity;
-    }
+    void setUpperTemperatureMargin(float newUpperMargin);
+    float getUpperTemperatureMargin();
 };
