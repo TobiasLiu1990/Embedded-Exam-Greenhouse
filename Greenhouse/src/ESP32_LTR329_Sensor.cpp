@@ -21,13 +21,10 @@ unsigned int ESP32_LTR329_Sensor::getFromLightSensor() {
             double ratio = infrared / (visibleAndIr + infrared);
 
             if (ratio < 0.45) {
-                Serial.println("ratio 1");
                 return ((1.7743 * visibleAndIr) + (1.1059 * infrared)) / gainCalc / integTimeCalc; // integTimeCalc = 4.0
             } else if (ratio < 0.64 && ratio >= 0.45) {
-                Serial.println("ratio 2");
                 return ((4.2785 * visibleAndIr) - (1.9548 * infrared)) / gainCalc / integTimeCalc;
             } else if (ratio < 0.85 && ratio >= 0.64) {
-                Serial.println("ratio 3");
                 return ((0.5926 * visibleAndIr) + (0.1185 * infrared)) / gainCalc / integTimeCalc;
             }
         }

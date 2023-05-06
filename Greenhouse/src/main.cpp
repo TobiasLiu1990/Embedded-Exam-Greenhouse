@@ -9,6 +9,7 @@
 #include "ConnectOpenWeathermap.h"
 #include "ESP32_LTR329_Sensor.h"
 #include "ESP32_SHT31_Sensor.h"
+#include "Fruit.h"
 #include "RunMotor.h"
 #include "StepperMotorVent.h"
 #include <Arduino.h>
@@ -69,12 +70,12 @@ unsigned long previousMillisSensor = 0;
 const long waitIntervalSensor = 5000;
 
 // FSM For fruits
-enum Fruits {
+enum State {
     Banana,
     Pineapple
 };
-Fruits currentState; // Will be set to Bananas by default
-int stateNumber;     // 0 will default to Bananas
+State currentState; // Will be set to Bananas by default
+int stateNumber;    // 0 will default to Bananas
 int oldStateNumber = stateNumber;
 
 // For different warning messages to Blynk.
@@ -90,10 +91,16 @@ bool isStateChanged = false;
 bool runErrorHandlingOnce = true;
 bool isConnectedToBlynk = false;
 
+Fruit currentFruit;
+Fruit banana(15, 30, 20.25, 27.7, 50, 100);
+Fruit pineapple(10, 35, 21.5, 31, 40, 60);
+
 float temperature;
 float humidity;
 bool temperatureReady;
 bool humidityReady;
+
+/*
 float minTemp;
 float maxTemp;
 float idealLowTemp;
@@ -102,6 +109,7 @@ float idealLowHumidity;
 float idealHighHumidity;
 float upperTemperatureMargin;
 float lowerTemperatureMargin;
+*/
 
 String colorGreen = "#228B22";
 String colorGreen2 = "#87DE24";
@@ -114,8 +122,8 @@ String colorYellow = "#E6D22A";
 void sht31StartupCheck();
 void rtcErrorCheckingAndUpdatingDate();
 
-void fruitStateTransition();
-void updateFruitStateConditions();
+void stateTransition();
+void updateStateConditions();
 
 void showCurrentDateAndTime();
 String printDateTime(const RtcDateTime &date);
@@ -285,13 +293,13 @@ void loop() {
     }
 
     if (isStateChanged) {
-        fruitStateTransition();
-        updateFruitStateConditions();
+        stateTransition();
+        updateStateConditions();
         isStateChanged = false;
     }
 
     if (isWindowOpen == false) {
-        if (temperature > upperTemperatureMargin) {
+        if (temperature > currentFruit.upperTemperatureMargin) {
             Serial.println("Window opening");
 
             isWindowOpen = true;
@@ -302,7 +310,7 @@ void loop() {
             Blynk.virtualWrite(V4, 1);
         }
     } else if (isWindowOpen == true) {
-        if (temperature < lowerTemperatureMargin) {
+        if (temperature < currentFruit.lowerTemperatureMargin) {
             Serial.println("Window closing");
 
             isWindowOpen = false;
@@ -318,11 +326,14 @@ void loop() {
 void initBlynk() {
     // On startup/reset - need to use fresh data.
     // Setting default to Banana.
-    String message = "Loading status...";
-    resetBlynkWidget(colorWhite, message);
+    resetBlynkWidget(colorWhite, "Loading status...");
+    
+    currentFruit = banana;
     stateNumber = 0;
-    fruitStateTransition();
-    updateFruitStateConditions();
+    Blynk.virtualWrite(V0, 0);
+
+    stateTransition();
+    updateStateConditions();
     digitalWrite(fanMotor1, HIGH);
     analogWrite(enable1, fanMotor.setDefaultFanSpeed());
     Blynk.virtualWrite(V50, fanMotor.setDefaultFanSpeed());
@@ -338,12 +349,10 @@ void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr3
 
 void getLux() {
     unsigned int lux = ltr.getFromLightSensor();
-    Serial.print("Lux: ");
-    Serial.println(lux);
     Blynk.virtualWrite(V3, lux);
 }
 
-void fruitStateTransition() {
+void stateTransition() {
     switch (stateNumber) {
     case 0:
         currentState = Banana;
@@ -354,22 +363,27 @@ void fruitStateTransition() {
     }
 }
 
-void updateFruitStateConditions() {
+void updateStateConditions() {
     if (currentState == Banana) {
         setLtrSettings(LTR3XX_GAIN_4, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x02], ALS_INT[0x03]);
 
         updateBlynkWidgetLabel(V0, "Current target: Bananas");
         updateBlynkWidgetColor(V0, colorYellow);
+        currentFruit = banana;
+        currentFruit.upperTemperatureMargin = sht31.getUpperTemperatureMargin(currentFruit.idealHighTemp);
+        currentFruit.lowerTemperatureMargin = sht31.getLowerTemperatureMargin(currentFruit.idealLowTemp);
+        /*
         minTemp = 15;
         maxTemp = 30;
         idealLowTemp = 20.25;
         idealHighTemp = 27.7;
         idealLowHumidity = 50;
         idealHighHumidity = 100;
+        */
         // Testing window with wrong values
         // Sensor reads around 34-35
-        upperTemperatureMargin = 25; // Dummy values
-        lowerTemperatureMargin = 23; // Dummy values
+        // upperTemperatureMargin = 25; // Dummy values
+        // lowerTemperatureMargin = 23; // Dummy values
 
         // upperTemperatureMargin = sht31.getUpperTemperatureMargin(idealHighTemp);     // 27.7 - 1.2 = 26.50
         // lowerTemperatureMargin = sht31.getLowerTemperatureMargin(idealLowTemp);      // 20.25 + 1.25 = 21.50
@@ -378,6 +392,10 @@ void updateFruitStateConditions() {
 
         updateBlynkWidgetLabel(V0, "Current target: Pineapples");
         updateBlynkWidgetColor(V0, colorGreen2);
+        currentFruit = pineapple;
+        currentFruit.upperTemperatureMargin = sht31.getUpperTemperatureMargin(currentFruit.idealHighTemp);
+        currentFruit.lowerTemperatureMargin = sht31.getLowerTemperatureMargin(currentFruit.idealLowTemp);
+        /*
         minTemp = 10;
         maxTemp = 35;
         idealLowTemp = 21.5;
@@ -386,6 +404,7 @@ void updateFruitStateConditions() {
         idealHighHumidity = 60;
         upperTemperatureMargin = sht31.getUpperTemperatureMargin(idealHighTemp);
         lowerTemperatureMargin = sht31.getLowerTemperatureMargin(idealLowTemp);
+        */
     }
 }
 
@@ -402,27 +421,27 @@ void checkTemperatureStatus() {
     String logEventMessage = "";
     String widgetColor = "";
 
-    if (temperature > idealLowTemp && temperature < idealHighTemp) {
+    if (temperature > currentFruit.idealLowTemp && temperature < currentFruit.idealHighTemp) {
         greenhouseStatus = Normal;
         widgetColor = colorGreen;
     } else {
-        if (temperature >= minTemp && temperature <= idealLowTemp) {
+        if (temperature >= currentFruit.minTemp && temperature <= currentFruit.idealLowTemp) {
             greenhouseStatus = Warning;
             widgetColor = colorOrange;
-            logEventMessage = "Warning, current temperature: " + String(temperature) + " is under ideal lower temperature of: " + String(idealLowTemp);
+            logEventMessage = "Warning, current temperature: " + String(temperature) + " is under ideal lower temperature of: " + String(currentFruit.idealLowTemp);
 
-        } else if (temperature >= idealHighTemp && temperature <= maxTemp) {
+        } else if (temperature >= currentFruit.idealHighTemp && temperature <= currentFruit.maxTemp) {
             greenhouseStatus = Warning;
             widgetColor = colorOrange;
-            logEventMessage = "Warning, current temperature: " + String(temperature) + " is over ideal upper temperature of: " + String(idealHighTemp);
+            logEventMessage = "Warning, current temperature: " + String(temperature) + " is over ideal upper temperature of: " + String(currentFruit.idealHighTemp);
 
-        } else if (temperature < minTemp) {
+        } else if (temperature < currentFruit.minTemp) {
             greenhouseStatus = Critical;
             widgetColor = colorRed;
-            logEventMessage = "Critical Warning, current temperature: " + String(temperature) + " is under min. temperature of: " + String(minTemp);
+            logEventMessage = "Critical Warning, current temperature: " + String(temperature) + " is under min. temperature of: " + String(currentFruit.minTemp);
 
-        } else if (temperature > maxTemp) {
-            logEventMessage = "Critical Warning, current temperature: " + String(temperature) + " is over max. temperature of: " + String(maxTemp);
+        } else if (temperature > currentFruit.maxTemp) {
+            logEventMessage = "Critical Warning, current temperature: " + String(temperature) + " is over max. temperature of: " + String(currentFruit.maxTemp);
             greenhouseStatus = Critical;
             widgetColor = colorRed;
         }
@@ -430,23 +449,23 @@ void checkTemperatureStatus() {
         Blynk.logEvent("temp_alert", logEventMessage);
     }
 
-    uploadStatusMessageToBlynk(V9, "Temperature", widgetColor, idealLowTemp, idealHighTemp);
+    uploadStatusMessageToBlynk(V9, "Temperature", widgetColor, currentFruit.idealLowTemp, currentFruit.idealHighTemp);
 }
 
 void checkHumidityStatus() {
     String logEventMessage = "";
     String widgetColor = "";
 
-    if (humidity > idealLowHumidity && humidity < idealHighHumidity) {
+    if (humidity > currentFruit.idealLowHumidity && humidity < currentFruit.idealHighHumidity) {
         greenhouseStatus = Normal;
         widgetColor = colorGreen;
     } else {
-        if (humidity <= idealLowHumidity) {
-            logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is under ideal level of: " + String(idealLowHumidity);
+        if (humidity <= currentFruit.idealLowHumidity) {
+            logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is under ideal level of: " + String(currentFruit.idealLowHumidity);
             greenhouseStatus = Critical;
             widgetColor = colorRed;
-        } else if (humidity >= idealHighHumidity) {
-            logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is over ideal level of: " + String(idealHighHumidity);
+        } else if (humidity >= currentFruit.idealHighHumidity) {
+            logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is over ideal level of: " + String(currentFruit.idealHighHumidity);
             greenhouseStatus = Critical;
             widgetColor = colorRed;
         }
@@ -454,7 +473,7 @@ void checkHumidityStatus() {
         Blynk.logEvent("humid_alert", logEventMessage);
     }
 
-    uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, idealLowHumidity, idealHighHumidity);
+    uploadStatusMessageToBlynk(V8, "Humidity", widgetColor, currentFruit.idealLowHumidity, currentFruit.idealHighHumidity);
 }
 
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh) {
