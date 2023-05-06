@@ -41,12 +41,6 @@ const String key = "6759feb4f31aad1b1ace05f93cc6824f";
 const String metric = "&units=metric";
 ConnectOpenWeathermap openWeathermap(endpoint, key, metric);
 
-RtcDS3231<TwoWire> Rtc(Wire);
-ESP32_SHT31_Sensor sht31;
-ESP32_LTR329_Sensor ltr;
-uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
-float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
-
 // L293D
 const int enable1_D5 = 5;
 const int fanMotor1_D6 = 6;
@@ -63,12 +57,16 @@ int ventOpenAngle[4] = {45, 90, 180, 360};
 StepperMotorVent vent(motorPin1, motorPin2, motorPin3, motorPin4, motorSpeed);
 
 // Timers
-unsigned long previousMillis = 0;
-const long waitInterval = 1000;
 unsigned long previousMillisSensor = 0;
 const long waitIntervalSensor = 5000;
 
-// FSM For fruits
+RtcDS3231<TwoWire> Rtc(Wire);
+ESP32_SHT31_Sensor sht31;
+ESP32_LTR329_Sensor ltr;
+uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
+float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
+
+// FSM
 enum State {
     Banana,
     Pineapple
@@ -85,11 +83,6 @@ enum Status {
 };
 Status greenhouseStatus;
 
-bool isWindowOpen = false;
-bool isStateChanged = false;
-bool runErrorHandlingOnce = true;
-bool isConnectedToBlynk = false;
-
 Fruit currentFruit;
 Fruit banana(15, 30, 20.25, 27.7, 50, 100);
 Fruit pineapple(10, 35, 21.5, 31, 40, 60);
@@ -98,6 +91,8 @@ float temperature;
 float humidity;
 bool temperatureReady;
 bool humidityReady;
+bool isWindowOpen = false;
+bool isStateChanged = false;
 
 String colorGreen = "#228B22";
 String colorGreen2 = "#87DE24";
@@ -107,6 +102,7 @@ String colorWhite = "#FFFFFF";
 String colorYellow = "#E6D22A";
 
 // Forward declarations
+void initDefault();
 void sht31StartupCheck();
 void rtcErrorCheckingAndUpdatingDate();
 
@@ -128,12 +124,11 @@ void uploadTemperatureToBlynk();
 void uploadHumidityToBlynk();
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
 
-void initDefault();
 void resetBlynkWidget(String color, String message);
 void updateBlynkWidgetColor(char vp, String color);
 void updateBlynkWidgetContent(char vp, String message);
 void updateBlynkWidgetLabel(char vp, String message);
-// Forward declarations
+
 
 // Checks Widget for state change on fruits.
 BLYNK_WRITE(V0) {
@@ -146,14 +141,8 @@ BLYNK_WRITE(V0) {
 }
 
 // Checks state for window if open/closed.
-
 BLYNK_WRITE(V4) {
     int windowState = param.asInt();
-    /*
-        Read the state.
-        if 1, means its open. if temps are high and open - do nothing
-        if 0, means its closed. if temps are low and closed - do nothing
-    */
 
     if (windowState == 0) {
         isWindowOpen = false;
@@ -168,12 +157,7 @@ BLYNK_WRITE(V50) {
 }
 
 BLYNK_CONNECTED() {
-    Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
-    isConnectedToBlynk = true;
-}
-
-BLYNK_DISCONNECTED() {
-    isConnectedToBlynk = false;
+    Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Vent, Greenhouse humidity info, Greenhouse temp info.
 }
 
 bool wasError(const char *errorTopic = "") {
