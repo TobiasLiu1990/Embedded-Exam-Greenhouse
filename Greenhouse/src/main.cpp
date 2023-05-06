@@ -47,7 +47,7 @@ ESP32_LTR329_Sensor ltr;
 uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
 float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
 
-//L293D
+// L293D
 const int enable1_D5 = 5;
 const int fanMotor1_D6 = 6;
 
@@ -128,7 +128,7 @@ void uploadTemperatureToBlynk();
 void uploadHumidityToBlynk();
 void uploadStatusMessageToBlynk(char vp, String widgetMessage, String widgetColor, float idealLow, float idealHigh);
 
-void init();
+void initDefault();
 void resetBlynkWidget(String color, String message);
 void updateBlynkWidgetColor(char vp, String color);
 void updateBlynkWidgetContent(char vp, String message);
@@ -168,7 +168,7 @@ BLYNK_WRITE(V50) {
 }
 
 BLYNK_CONNECTED() {
-    Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9, V50); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
+    Blynk.syncVirtual(V0, V1, V2, V3, V4, V8, V9); // State, Temp, Humidity, Lux, Greenhouse humidity info, Greenhouse temp info.
     isConnectedToBlynk = true;
 }
 
@@ -222,6 +222,7 @@ void setup() {
     pinMode(motorPin2, OUTPUT);
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
+
     pinMode(enable1_D5, OUTPUT);
     pinMode(fanMotor1_D6, OUTPUT);
 
@@ -245,7 +246,7 @@ void setup() {
         delay(1000);
     }
     Serial.println("currentDateAndTime connected to Blynk Greenhouse!");
-    init();
+    initDefault();
 
     // Blynk .setInterval can not take a function with arguments
     timer.setInterval(1000L, showCurrentDateAndTime);
@@ -312,7 +313,7 @@ void loop() {
     }
 }
 
-void init() {
+void initDefault() {
     /*
     On startup - Sets some default values:
         - Resets labels on Blynk.
@@ -332,7 +333,7 @@ void init() {
     stateTransition();
     updateStateConditions();
 
-    vent.setSequencesToAngle(ventOpenAngle[0]);     //Sets how much the Stepper motor needs to spin for 45 degrees.
+    vent.setSequencesToAngle(ventOpenAngle[0]); // Sets how much the Stepper motor needs to spin for 45 degrees.
     if (vent.checkSequences()) {
         Serial.println("Successfully set angle");
     } else {
