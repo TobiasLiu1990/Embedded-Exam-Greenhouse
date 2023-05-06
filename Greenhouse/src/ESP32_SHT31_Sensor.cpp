@@ -1,12 +1,16 @@
 #include "ESP32_SHT31_Sensor.h"
 #include <Arduino.h>
 
-float ESP32_SHT31_Sensor::readTemperature() {
-    return temperature = sht31.readTemperature() - getTemperatureCompensation();
+ESP32_SHT31_Sensor::ESP32_SHT31_Sensor() {
+    sht31 = Adafruit_SHT31();
 }
 
-float ESP32_SHT31_Sensor::readHumidity() {
-    return humidity = sht31.readHumidity() - getHumidityCompensation();
+float ESP32_SHT31_Sensor::getTemperature() {
+    return sht31.readTemperature() - getTemperatureCompensation();
+}
+
+float ESP32_SHT31_Sensor::getHumidity() {
+    return sht31.readHumidity() - getHumidityCompensation();
 }
 
 // Value is a very simple calculation after running ESP32 and DHT11 indoor on a table for 15min each.

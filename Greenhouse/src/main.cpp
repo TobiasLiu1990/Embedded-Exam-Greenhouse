@@ -132,6 +132,7 @@ void showCurrentWeather();
 void checkSensorData();
 void checkTemperatureStatus();
 void checkHumidityStatus();
+void updateUpperAndLowerTemperatureMargins();
 void getLux();
 void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int);
 
@@ -271,8 +272,8 @@ void loop() {
 
     unsigned long currentMillis = millis();
     if (currentMillis - previousMillisSensor >= waitIntervalSensor) {
-        temperature = sht31.readTemperature();
-        humidity = sht31.readHumidity();
+        temperature = sht31.getTemperature();
+        humidity = sht31.getHumidity();
         temperatureReady = false;
         humidityReady = false;
 
