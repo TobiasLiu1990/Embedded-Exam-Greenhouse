@@ -47,10 +47,9 @@ ESP32_LTR329_Sensor ltr;
 uint ALS_GAIN[8] = {1, 2, 4, 48, 96};
 float ALS_INT[8] = {1.0, 0.5, 2.0, 4.0, 1.5, 2.5, 3.0, 3.5};
 
-//---------------------L293D
-// Might add fan for later use if possible
-#define enable1 A2
-#define fanMotor1 A3
+//L293D
+const int enable1_D5 = 5;
+const int fanMotor1_D6 = 6;
 
 RunMotor fanMotor;
 
@@ -165,7 +164,7 @@ BLYNK_WRITE(V4) {
 
 BLYNK_WRITE(V50) {
     int speed = param.asInt();
-    analogWrite(enable1, speed);
+    analogWrite(enable1_D5, speed);
 }
 
 BLYNK_CONNECTED() {
@@ -223,8 +222,8 @@ void setup() {
     pinMode(motorPin2, OUTPUT);
     pinMode(motorPin3, OUTPUT);
     pinMode(motorPin4, OUTPUT);
-    pinMode(enable1, OUTPUT);
-    pinMode(fanMotor1, OUTPUT);
+    pinMode(enable1_D5, OUTPUT);
+    pinMode(fanMotor1_D6, OUTPUT);
 
     rtcErrorCheckingAndUpdatingDate(); // Taken from Rtc by Makuna - DS3231_Simple example. Some minor changes to the error checking code.
     sht31StartupCheck();
@@ -340,9 +339,9 @@ void init() {
         Serial.println("Angle was not set");
     }
 
-    digitalWrite(fanMotor1, HIGH);
-    analogWrite(enable1, fanMotor.setDefaultFanSpeed());
-    Blynk.virtualWrite(V50, fanMotor.setDefaultFanSpeed());
+    digitalWrite(fanMotor1_D6, HIGH);
+    analogWrite(enable1_D5, fanMotor.getDefaultFanSpeed());
+    Blynk.virtualWrite(V50, fanMotor.getDefaultFanSpeed());
 }
 
 void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {

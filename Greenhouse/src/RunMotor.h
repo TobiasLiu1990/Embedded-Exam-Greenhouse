@@ -1,6 +1,13 @@
 #include <Arduino.h>
 
 class RunMotor {
+private:
+    int speed;
+
 public:
-    int setDefaultFanSpeed();
+    RunMotor() {
+        speed = 100;
+    }
+
+    int getDefaultFanSpeed();
 };
