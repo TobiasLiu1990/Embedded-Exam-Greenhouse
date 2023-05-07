@@ -1,9 +1,6 @@
 /*
   https://stackoverflow.com/questions/46111834/format-curly-braces-on-same-line-in-c-vscode - For changing auto format behaviour
   https://htmlcolorcodes.com/colors/shades-of-green/
-
-  Blynk event limit: 5 (free)
-  Blynk notificaton limit: 100 per day
 */
 
 #include "ConnectOpenWeathermap.h"
@@ -31,7 +28,7 @@ const char *password = "NikitaBoy";
 #define BLYNK_PRINT Serial
 
 BlynkTimer timer;               // Each Blynk timer can run up to 16 instances.
-char auth[] = BLYNK_AUTH_TOKEN; // Blynk token
+char auth[] = BLYNK_AUTH_TOKEN; // Blynk token, used to connect to Blynk.
 char ssidBlynk[] = "Venti_2.4G";
 char pass[] = "NikitaBoy";
 
@@ -128,7 +125,6 @@ void resetBlynkWidget(String color, String message);
 void updateBlynkWidgetColor(char vp, String color);
 void updateBlynkWidgetContent(char vp, String message);
 void updateBlynkWidgetLabel(char vp, String message);
-
 
 // Checks Widget for state change on fruits.
 BLYNK_WRITE(V0) {
@@ -329,19 +325,6 @@ void initDefault() {
     Blynk.virtualWrite(V50, fanMotor.getDefaultFanSpeed());
 }
 
-void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {
-    ltr.ltr329.setGain(gain); // Banana Gain 4, 0.25 - 16k
-    ltr.ltr329.setIntegrationTime(integTime);
-    ltr.ltr329.setMeasurementRate(measRate);
-    ltr.setGainCalc(als_gain);
-    ltr.setIntegTimeCalc(als_int);
-}
-
-void getLux() {
-    unsigned int lux = ltr.getFromLightSensor();
-    Blynk.virtualWrite(V3, lux);
-}
-
 void stateTransition() {
     switch (stateNumber) {
     case 0:
@@ -354,9 +337,8 @@ void stateTransition() {
 }
 
 void updateStateConditions() {
-
     if (currentState == Banana) {
-        setLtrSettings(LTR3XX_GAIN_4, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x02], ALS_INT[0x03]);
+        setLtrSettings(LTR3XX_GAIN_2, LTR3XX_INTEGTIME_400, LTR3XX_MEASRATE_500, ALS_GAIN[0x02], ALS_INT[0x03]);
         updateBlynkWidgetLabel(V0, "Current target: Bananas");
         updateBlynkWidgetColor(V0, colorYellow);
 
@@ -382,6 +364,19 @@ void updateUpperAndLowerTemperatureMargins() {
     Serial.println(currentFruit.getLowerTemperatureMargin());
     Serial.print("upper temp margin: ");
     Serial.println(currentFruit.getUpperTemperatureMargin());
+}
+
+void setLtrSettings(ltr329_gain_t gain, ltr329_integrationtime_t integTime, ltr329_measurerate_t measRate, uint als_gain, float als_int) {
+    ltr.ltr329.setGain(gain);
+    ltr.ltr329.setIntegrationTime(integTime);
+    ltr.ltr329.setMeasurementRate(measRate);
+    ltr.setGainCalc(als_gain);
+    ltr.setIntegTimeCalc(als_int);
+}
+
+void getLux() {
+    unsigned int lux = ltr.getFromLightSensor();
+    Blynk.virtualWrite(V3, lux);
 }
 
 void checkSensorData() {
@@ -440,6 +435,7 @@ void checkHumidityStatus() {
             logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is under ideal level of: " + String(currentFruit.getIdealLowHumidity());
             greenhouseStatus = Critical;
             widgetColor = colorRed;
+            
         } else if (humidity >= currentFruit.getIdealHighHumidity()) {
             logEventMessage = "Critical warning, current humidity: " + String(humidity) + " is over ideal level of: " + String(currentFruit.getIdealHighHumidity());
             greenhouseStatus = Critical;
